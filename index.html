@@ -1,44 +1,47 @@
 <!doctype html>
-<html lang="en">
+<html lang="hi">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/icons/icon-96x96.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <meta name="theme-color" content="#2E7D32" />
-    <meta name="description" content="Monsoon Mitra - Smart farming weather app for Indian farmers" />
-    
+    <meta name="description" content="Monsoon Mitra - किसान का डिजिटल साथी। Weather-aware irrigation advisory for Indian farmers in Hindi and regional languages." />
+    <meta name="keywords" content="monsoon mitra, farmer app, irrigation, weather, kisan, मौसम, सिंचाई" />
+    <meta name="author" content="MSAbhishek22" />
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
-    
+
     <!-- Mobile App Meta -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Monsoon Mitra" />
-    
-    <!-- Fonts -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+
+    <!-- Preconnect for fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <title>🌾 Monsoon Mitra</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <title>🌾 Monsoon Mitra - किसान का साथी</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    
+
     <!-- Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js')
             .then((registration) => {
-              console.log('SW registered: ', registration);
+              if (import.meta.env?.DEV) console.log('SW registered:', registration);
             })
             .catch((registrationError) => {
-              console.log('SW registration failed: ', registrationError);
+              if (import.meta.env?.DEV) console.log('SW registration failed:', registrationError);
             });
         });
       }
     </script>
   </body>
-</html> 
+</html>

@@ -11,7 +11,7 @@ function formatAnswer(raw) {
   if (!raw) return { conclusion: '', bullets: [], raw }
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean)
   const conclusion = lines[0] || ''
-  const bullets = lines.slice(1).map(l => l.replace(/^[-•\*]\s?/, ''))
+  const bullets = lines.slice(1).map(l => l.replace(/^[-•*]\s?/, ''))
   return { conclusion, bullets, raw }
 }
 

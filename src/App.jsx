@@ -1,250 +1,226 @@
-import React, { useState, useEffect, Suspense } from 'react'
-import TopBar from './components/TopBar'
-import WeatherCard from './components/WeatherCard'
-import RecommendationCard from './components/RecommendationCard'
-import SavingsCard from './components/SavingsCard'
-import CropSelector from './components/CropSelector'
-import StageSelector from './components/StageSelector'
-import CropInfoCard from './components/CropInfoCard'
-import EmergencyAlert from './components/EmergencyAlert'
-import VoiceInput from './components/VoiceInput'
-// Lazy load AI Sahayak
-const AISahayak = React.lazy(() => import('./components/ai/AISahayak'))
-import { fetchOpenMeteo } from './api/providers/openMeteo'
-import { getCachedWeather, setCachedWeather } from './api/cache'
-import { getPrefs, setPrefs } from './state/prefs'
-import { getHarvestRisk } from './utils/harvestRisk'
-import { askGemini } from './components/ai/gemini'
+// src/App.jsx
+import React, { useState } from 'react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useApp } from './context/AppContext';
+import { useNotifications } from './hooks/useNotifications';
+import { useWeather } from './hooks/useWeather';
+import { trackEvent, EVENTS } from './firebase/analytics';
 
-function App() {
-  const initialPrefs = getPrefs()
-  const [language, setLanguage] = useState(initialPrefs.language || 'HI')
-  const [theme, setTheme] = useState('light')
-  const [loc, setLoc] = useState(null)
-  const [wx, setWx] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [recommendation, setRecommendation] = useState('')
-  const [isOffline, setIsOffline] = useState(!navigator.onLine)
-  const [lastUpdate, setLastUpdate] = useState(new Date())
-  const [savings, setSavings] = useState(500)
-  const [selectedCrop, setSelectedCrop] = useState('wheat')
-  const [showVoiceInput, setShowVoiceInput] = useState(false)
-  const [emergencyAlert, setEmergencyAlert] = useState(null)
-  const [prefs, setPrefsState] = useState(initialPrefs)
+// Components
+import SplashScreen from './components/common/SplashScreen';
+import BottomNav from './components/common/BottomNav';
+import OnboardingWrapper from './components/onboarding/OnboardingWrapper';
+import AlertBanner from './components/alerts/AlertBanner';
+import AlertModal from './components/alerts/AlertModal';
+import { seedDemoData } from './utils/demoSeed';
 
-  // Persist language preference
-  useEffect(() => {
-    setPrefs({ language })
-  }, [language])
+// Pages
+import HomePage from './pages/HomePage';
+import WeatherPage from './pages/WeatherPage';
+import AIPage from './pages/AIPage';
+import SavingsPage from './pages/SavingsPage';
+import SettingsPage from './pages/SettingsPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 
-  // Global askAI hook for demos
-  useEffect(() => {
-    window.askAI = async (q) => {
-      const res = await askGemini(q, language)
-      console.log('AI:', res)
-      return res
+function MainAppFlow() {
+  const { activeTab, alerts, dismissAlert, user } = useApp();
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  
+  // Render active tab content
+  const renderTab = () => {
+    switch (activeTab) {
+      case 'home': return <HomePage />;
+      case 'weather': return <WeatherPage />;
+      case 'ai': return <AIPage />;
+      case 'savings': return <SavingsPage />;
+      case 'settings': return <SettingsPage />;
+      default: return <HomePage />;
     }
-    return () => { delete window.askAI }
-  }, [language])
-
-  useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const newLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-        setLoc(newLoc)
-        setPrefs({ location: { ...newLoc, name: 'Current Location' } })
-      },
-      () => {
-        const fallbackLoc = { lat: 25.61, lon: 85.14 }
-        setLoc(fallbackLoc)
-        setPrefs({ location: { ...fallbackLoc, name: 'Patna' } })
-      }
-    )
-  }, [])
-
-  useEffect(() => {
-    if (!loc) return
-    const cached = getCachedWeather(loc.lat, loc.lon, 30)
-    if (cached) {
-      setWx(cached)
-      setLastUpdate(new Date())
-      checkEmergencyConditions(cached)
-    }
-    const loadWeather = async () => {
-      try {
-        setLoading(true)
-        const data = await fetchOpenMeteo(loc)
-        setWx(data)
-        setLastUpdate(new Date())
-        setCachedWeather(loc.lat, loc.lon, data)
-        checkEmergencyConditions(data)
-      } catch (e) {
-        console.warn('Using cached/offline weather:', e.message)
-        if (!cached) setWx(null)
-      } finally { setLoading(false) }
-    }
-    if (navigator.onLine) loadWeather()
-  }, [loc])
-
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false)
-    const handleOffline = () => setIsOffline(true)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
-
-  const checkEmergencyConditions = (weather) => {
-    if (!weather) return
-    if (weather.next24h?.maxProb > 80) {
-      setEmergencyAlert({ type: 'flood', message: language === 'HI' ? '⚠️ बाढ़ की चेतावनी: आज पानी न दें!' : "⚠️ Flood Warning: Don't irrigate today!", color: 'red' })
-      return
-    } else if (weather.next24h?.maxProb < 10 && weather.current?.tempC > 35) {
-      setEmergencyAlert({ type: 'drought', message: language === 'HI' ? '🌵 सूखे की स्थिति: पानी बचाएं!' : '🌵 Drought Alert: Save water!', color: 'orange' })
-      return
-    }
-    if (prefs.stage === 'Harvesting') {
-      const harvestRisk = getHarvestRisk(weather)
-      if (harvestRisk?.high) {
-        setEmergencyAlert({ type: 'harvest', message: language === 'HI' ? '⚠️ कटाई टालें — अगले 48–72 घंटों में बारिश की आशंका है।' : '⚠️ Delay harvest — rain expected in next 48-72 hours.', color: 'red' })
-        return
-      }
-    }
-    setEmergencyAlert(null)
-  }
-
-  const generateRecommendation = (weather, crop) => {
-    if (!weather) return ''
-    const { next24h } = weather
-    const maxProb = next24h?.maxProb ?? 0
-    const totalRain = next24h?.totalRainMm ?? 0
-    if (maxProb >= 50 || totalRain >= 5) {
-      const cropAdvice = {
-        wheat: language === 'HI' ? '🌧️ गेहूं के लिए पानी न दें, बारिश होगी' : "🌧️ Don't irrigate wheat, rain expected",
-        rice: language === 'HI' ? '🌧️ धान के लिए बारिश का इंतजार करें' : '🌧️ Wait for rain for rice',
-        vegetables: language === 'HI' ? '🌧️ सब्जियों को कम पानी दें' : '🌧️ Give less water to vegetables'
-      }
-      return cropAdvice[crop] || cropAdvice.wheat
-    } else {
-      const cropAdvice = {
-        wheat: language === 'HI' ? '🚜 गेहूं के लिए सिंचाई करें' : '🚜 Irrigate wheat now',
-        rice: language === 'HI' ? '💧 धान के लिए पानी दें' : '💧 Give water to rice',
-        vegetables: language === 'HI' ? '🚜 सब्जियों की सिंचाई करें' : '🚜 Irrigate vegetables'
-      }
-      return cropAdvice[crop] || cropAdvice.wheat
-    }
-  }
-
-  const calculateSavings = (weather, crop) => {
-    if (!weather) return 500
-    const { next24h } = weather
-    const maxProb = next24h?.maxProb ?? 0
-    const baseSavings = maxProb >= 50 ? 800 : 500
-    const cropMultiplier = { wheat: 1.0, rice: 1.2, vegetables: 1.5 }
-    return Math.round(baseSavings * (cropMultiplier[crop] || 1.0))
-  }
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light'
-    setTheme(newTheme)
-    document.documentElement.classList.toggle('dark', newTheme === 'dark')
-  }
-
-  const handleLocationChange = (newLocation) => {
-    setLoc({ lat: newLocation.lat, lon: newLocation.lon })
-    setPrefsState(prev => ({ ...prev, location: newLocation }))
-  }
-
-  useEffect(() => {
-    if (wx) {
-      const newRecommendation = generateRecommendation(wx, selectedCrop)
-      setRecommendation(newRecommendation)
-      setSavings(calculateSavings(wx, selectedCrop))
-    }
-  }, [wx, language, selectedCrop])
-
-  useEffect(() => { setPrefsState(getPrefs()) }, [])
-
-  useEffect(() => {
-    window.testEmergency = (type = 'flood') => {
-      if (type === 'flood') setEmergencyAlert({ type: 'flood', message: language === 'HI' ? '⚠️ बाढ़ की चेतावनी: आज पानी न दें!' : "⚠️ Flood Warning: Don't irrigate today!", color: 'red' })
-      else if (type === 'drought') setEmergencyAlert({ type: 'drought', message: language === 'HI' ? '🌵 सूखे की स्थिति: पानी बचाएं!' : '🌵 Drought Alert: Save water!', color: 'orange' })
-    }
-    return () => { delete window.testEmergency }
-  }, [language])
-
-  const legacyWeatherData = wx ? {
-    condition: wx.current?.rainProb > 50 ? '🌧️ बारिश' : '☀️ धूप',
-    temperature: `${wx.current?.tempC?.toFixed(1) ?? '--'}°C`,
-    humidity: `${wx.current?.humidity?.toFixed(0) ?? '--'}%`,
-    rainProbability: wx.current?.rainProb ?? 0
-  } : null
+  };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${theme === 'light' ? 'bg-farmer-beige' : 'bg-gray-900'}`}>
-      {emergencyAlert && (
-        <EmergencyAlert alert={emergencyAlert} language={language} onClose={() => setEmergencyAlert(null)} />
-      )}
-      {isOffline && (
-        <div className="offline-banner">⚠️ {language === 'HI' ? 'आप ऑफलाइन हैं, आखिरी सलाह दिखाई जा रही है' : 'You are offline, showing last saved advice'}</div>
-      )}
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        <TopBar 
-          language={language}
-          onLanguageToggle={() => setLanguage(language === 'HI' ? 'EN' : 'HI')}
-          onLanguageChange={setLanguage}
-          theme={theme}
-          onThemeToggle={toggleTheme}
-          onLocationChange={handleLocationChange}
-          isOffline={isOffline}
+    <div className="min-h-screen bg-[#F1F8E9]">
+      {/* Alert Banners */}
+      {alerts.map((alert) => (
+        <AlertBanner
+          key={alert.type}
+          alert={alert}
+          onDismiss={() => dismissAlert(alert.type)}
+          onDetails={() => setSelectedAlert(alert)}
         />
+      ))}
 
-        <div className="text-center mb-8 mt-8">
-          <h2 className={`mobile-heading ${theme === 'light' ? 'text-farmer-dark' : 'text-white'}`}>
-            {language === 'HI' ? 'नमस्ते किसान भाई 👋' : 'Hello Farmer 👋'}
-          </h2>
-          <p className={`mobile-text ${theme === 'light' ? 'text-gray-600' : 'text-gray-300'}`}>
-            {language === 'HI' ? 'आज का मौसम ये है...' : "Today's weather..."}
-          </p>
-        </div>
-
-        <div className="mb-8">
-          <StageSelector language={language} theme={theme} onLocationChange={handleLocationChange} />
-        </div>
-        <div className="mb-8">
-          <CropSelector selectedCrop={selectedCrop} onCropChange={setSelectedCrop} language={language} theme={theme} />
-        </div>
-
-        <div className="mobile-grid lg:desktop-grid">
-          <WeatherCard weatherData={legacyWeatherData} language={language} theme={theme} onRefresh={() => window.location.reload()} loading={loading} liveData={wx} />
-          <RecommendationCard recommendation={recommendation} language={language} theme={theme} isOffline={isOffline} lastUpdate={lastUpdate} selectedCrop={selectedCrop} liveData={wx} areaAcre={prefs.areaAcre} />
-          <div className="space-y-8">
-            <SavingsCard savings={savings} language={language} theme={theme} selectedCrop={selectedCrop} />
-            <Suspense fallback={<div>Loading AI Sahayak...</div>}>
-              <AISahayak language={language} theme={theme} />
-            </Suspense>
-          </div>
-        </div>
-
-        <div className="mobile-grid lg:grid-cols-3 mt-8 gap-6">
-          <CropInfoCard selectedCrop={selectedCrop} language={language} theme={theme} />
-        </div>
-
-        {showVoiceInput && (
-          <VoiceInput onClose={() => setShowVoiceInput(false)} onSubmit={() => {}} language={language} theme={theme} />
-        )}
-
-        <div className="fab-mobile">
-          <button onClick={() => setShowVoiceInput(true)} className="bg-farmer-amber hover:bg-farmer-light-amber text-farmer-dark rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95 audio-feedback flex items-center justify-center" title={language === 'HI' ? 'आवाज से बात करें' : 'Talk with voice'} aria-label={language === 'HI' ? 'आवाज से बात करें' : 'Talk with voice'}>
-            <span className="text-4xl md:text-5xl">🎤</span>
-          </button>
-        </div>
+      {/* Main Content Area */}
+      <div className="pb-[64px]">
+        {renderTab()}
       </div>
+
+      {/* Bottom Navigation */}
+      <BottomNav />
+
+      {/* Alert Detail Modal */}
+      {selectedAlert && (
+        <AlertModal
+          alert={selectedAlert}
+          onClose={() => setSelectedAlert(null)}
+        />
+      )}
     </div>
-  )
+  );
 }
 
-export default App 
+function AppShell() {
+  const { onboardingComplete, completeOnboarding, addAlert, notificationSettings } = useApp();
+  const { alertLevel } = useWeather();
+  const { scheduleWeatherAlert } = useNotifications();
+  const [showSplash, setShowSplash] = useState(true);
+  const location = useLocation();
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+
+  React.useEffect(() => {
+    // Demo seed
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('demo') === 'true' || import.meta.env.DEV) {
+      seedDemoData();
+    }
+
+    // SW update listener
+    const swHandler = () => setShowUpdateBanner(true);
+    window.addEventListener('sw_update_available', swHandler);
+
+    // Install prompt listener
+    const installHandler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      const hasUsedAI = localStorage.getItem('ai_message_count');
+      if (hasUsedAI && parseInt(hasUsedAI) >= 2) {
+        setShowInstallBanner(true);
+      }
+      trackEvent('pwa_install_prompted');
+    };
+    window.addEventListener('beforeinstallprompt', installHandler);
+    window.addEventListener('appinstalled', () => {
+      trackEvent('pwa_installed');
+      setShowInstallBanner(false);
+    });
+
+    return () => {
+      window.removeEventListener('sw_update_available', swHandler);
+      window.removeEventListener('beforeinstallprompt', installHandler);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') trackEvent('pwa_installed');
+    setInstallPrompt(null);
+    setShowInstallBanner(false);
+  };
+
+  // Check for alerts when weather updates
+  React.useEffect(() => {
+    if (!alertLevel) return;
+    
+    const alert = {
+      type: alertLevel,
+      title: alertLevel === 'flood' ? '⚠️ बाढ़ की चेतावनी!' : '🌡️ सूखे की चेतावनी',
+      severity: 'high'
+    };
+    
+    // Only show if setting is enabled
+    if (notificationSettings[alertLevel]) {
+      addAlert(alert);
+      trackEvent(EVENTS.ALERT_VIEWED, { alert_type: alertLevel });
+      // Schedule native notification
+      scheduleWeatherAlert({
+        isFloodRisk: alertLevel === 'flood',
+        isDroughtRisk: alertLevel === 'drought'
+      });
+    }
+  }, [alertLevel, addAlert, notificationSettings, scheduleWeatherAlert]);
+
+  // Track app open
+  React.useEffect(() => {
+    trackEvent(EVENTS.APP_OPENED);
+  }, []);
+
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
+  // Handle standalone routes first
+  if (location.pathname === '/privacy') return <PrivacyPolicy />;
+  if (location.pathname === '/terms') return <TermsOfService />;
+
+  // Require onboarding for main app
+  if (!onboardingComplete) {
+    trackEvent(EVENTS.ONBOARDING_STARTED);
+    return <OnboardingWrapper onComplete={completeOnboarding} />;
+  }
+
+  // Main app with tabs
+  return (
+    <>
+      {showUpdateBanner && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 500,
+          background: '#2E7D32', color: '#fff',
+          padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <span style={{ fontSize: '14px' }}>🌾 नया अपडेट उपलब्ध है!</span>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              background: '#fff', color: '#2E7D32', border: 'none',
+              borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer'
+            }}
+          >
+            अपडेट करें
+          </button>
+        </div>
+      )}
+      <MainAppFlow />
+      {showInstallBanner && (
+        <div style={{
+          position: 'fixed', bottom: '72px', left: '16px', right: '16px', zIndex: 400,
+          background: '#FFFFFF', border: '2px solid #2E7D32',
+          borderRadius: '16px', padding: '16px',
+          boxShadow: '0 4px 20px rgba(46,125,50,0.2)',
+          display: 'flex', alignItems: 'center', gap: '12px'
+        }}>
+          <span style={{ fontSize: '32px' }}>📲</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>
+              ऐप इंस्टॉल करें
+            </p>
+            <p style={{ fontSize: '13px', color: '#757575', margin: '2px 0 0' }}>
+              बिना इंटरनेट भी काम करेगा
+            </p>
+          </div>
+          <button onClick={handleInstall} style={{
+            background: '#2E7D32', color: '#fff', border: 'none',
+            borderRadius: '10px', padding: '10px 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer'
+          }}>
+            इंस्टॉल
+          </button>
+          <button onClick={() => setShowInstallBanner(false)} style={{
+            background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#BDBDBD'
+          }}>×</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="*" element={<AppShell />} />
+    </Routes>
+  );
+}
