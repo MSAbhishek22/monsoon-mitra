@@ -1,25 +1,15 @@
-// src/components/SavingsTracker.jsx — Section 8 savings snapshot
-import React, { useState, useEffect } from 'react';
+// src/components/SavingsTracker.jsx — Savings snapshot on HomePage
 import { t } from '../i18n/index';
 import { storage } from '../utils/storage';
+import { calculateTotalSavings } from '../utils/savingsCalculator';
+import { useCountUp } from '../hooks/useCountUp';
 
 export default function SavingsTracker({ language, onNavigate }) {
-  const [displayAmount, setDisplayAmount] = useState(0);
-  const totalSavings = storage.get('total_savings', 0);
-  const goal = storage.get('savings_goal', 5000);
+  const irrigationLog = storage.get('irrigation_log') || [];
+  const totalSavings = calculateTotalSavings(irrigationLog);
+  const goal = storage.get('savings_goal') || 5000;
 
-  useEffect(() => {
-    if (totalSavings <= 0) return;
-    let current = 0;
-    const increment = totalSavings / 60;
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= totalSavings) { setDisplayAmount(totalSavings); clearInterval(timer); }
-      else setDisplayAmount(Math.floor(current));
-    }, 25);
-    return () => clearInterval(timer);
-  }, [totalSavings]);
-
+  const { current: displayAmount } = useCountUp(totalSavings);
   const pct = goal > 0 ? Math.min((totalSavings / goal) * 100, 100) : 0;
 
   return (
@@ -28,9 +18,19 @@ export default function SavingsTracker({ language, onNavigate }) {
       <p className="text-4xl font-extrabold text-primary-800 mt-2">₹{displayAmount.toLocaleString('en-IN')}</p>
       <p className="text-sm text-[#757575] mt-1">{t(language, 'thisMonthSavings')}</p>
       <div className="h-2 bg-[#E0E0E0] rounded mt-4 overflow-hidden">
-        <div className="h-full rounded" style={{ width: `${pct}%`, background: 'linear-gradient(to right, #4CAF50, #2E7D32)', transition: 'width 1s ease-out' }} />
+        <div
+          className="h-full rounded"
+          style={{
+            width: `${pct}%`,
+            background: 'linear-gradient(to right, #4CAF50, #2E7D32)',
+            transition: 'width 1.2s ease-out'
+          }}
+        />
       </div>
-      <button onClick={() => onNavigate?.('savings')} className="text-sm font-semibold text-primary-800 mt-3 tap-feedback text-right block w-full">
+      <button
+        onClick={() => onNavigate?.('savings')}
+        className="text-sm font-semibold text-primary-800 mt-3 tap-feedback text-right block w-full"
+      >
         {t(language, 'viewFullDetails')}
       </button>
     </div>
