@@ -50,7 +50,7 @@ export function useNotifications() {
               setFcmToken(token);
               storage.set('fcm_token', token);
               storage.set('fcm_token_timestamp', Date.now());
-              console.log('[Notifications] FCM token registered ✓');
+              storage.set('fcm_token_timestamp', Date.now());
               return token;
             }
           }
@@ -86,7 +86,6 @@ export function useNotifications() {
         if (!messaging) return;
 
         unsubscribe = onMessage(messaging, (payload) => {
-          console.log('[Notifications] Foreground FCM message:', payload);
           trackEvent(EVENTS.NOTIFICATION_RECEIVED, { type: payload.data?.type || 'unknown' });
 
           // Dispatch to App for in-app alert banner

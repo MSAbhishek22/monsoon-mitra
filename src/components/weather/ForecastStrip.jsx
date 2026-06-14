@@ -19,7 +19,7 @@ export default function ForecastStrip({ hourlyData, label }) {
   return (
     <div>
       {label && <h3 className="text-[17px] font-bold text-[#1A1A1A] mb-3">{label}</h3>}
-      <div className="flex gap-2 overflow-x-auto scroll-hidden pb-2">
+      <div className="flex gap-2 overflow-x-auto scroll-hidden hide-scrollbar pb-2">
         {slots.slice(0, 24).map((slot, i) => (
           <div
             key={i}

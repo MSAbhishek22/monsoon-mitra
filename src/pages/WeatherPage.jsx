@@ -16,8 +16,8 @@ function getBarColor(pct) {
 }
 
 export default function WeatherPage() {
-  const { user } = useApp();
-  const { normalized, irrigationDecision, loading, weatherData } = useWeather();
+  const { user, setActiveTab } = useApp();
+  const { normalized, irrigationDecision, loading, weatherData, refresh, lastUpdate } = useWeather();
   const lang = user.language || 'hi';
   const daily = weatherData?.daily || [];
   const [barsVisible, setBarsVisible] = useState(false);
@@ -44,17 +44,23 @@ export default function WeatherPage() {
   const state = user.location?.state || '';
 
   return (
-    <div className="bg-[#F1F8E9] min-h-screen pb-20">
+    <div className="bg-[#F1F8E9] min-h-screen pb-20 scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
       {/* SECTION 1 — Weather Hero */}
       <div style={{
         background: 'linear-gradient(180deg, #0277BD 0%, #01579B 100%)',
         borderRadius: '0 0 32px 32px',
         padding: '24px 20px 32px'
       }}>
-        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.85)', marginBottom: '8px' }}>
-          📍 {city}{state ? `, ${state}` : ''}
-        </p>
-        {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.85)', margin: 0 }}>
+            📍 {city}{state ? `, ${state}` : ''}
+          </p>
+          <button onClick={refresh} disabled={loading} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '16px', padding: '4px 12px', color: '#fff', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span className={loading ? 'animate-spin' : ''} style={{ display: 'inline-block' }}>🔄</span> {lang === 'hi' ? 'रिफ्रेश' : 'Refresh'}
+          </button>
+        </div>
+        {lastUpdate && <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: '0 0 12px 0' }}>{lang === 'hi' ? 'अंतिम अपडेट:' : 'Last updated:'} {lastUpdate.toLocaleTimeString(lang === 'hi' ? 'hi-IN' : 'en-IN', { hour: '2-digit', minute: '2-digit' })}</p>}
+        {loading && !normalized ? (
           <div className="skeleton" style={{ height: '72px', width: '120px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px' }} />
         ) : (
           <>
@@ -110,6 +116,9 @@ export default function WeatherPage() {
           <p style={{ fontSize: '14px', color: '#4A4A4A', marginTop: '8px' }}>
             {irrigationDecision.reason}
           </p>
+          <button onClick={() => setActiveTab('savings')} style={{ width: '100%', marginTop: '16px', padding: '12px', background: irrigationDecision.decision === 'skip' ? '#0288D1' : '#2E7D32', color: '#fff', borderRadius: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+            <span>📝</span> {lang === 'hi' ? 'सिंचाई निर्णय दर्ज करें' : 'Log Irrigation Decision'}
+          </button>
         </div>
       )}
 

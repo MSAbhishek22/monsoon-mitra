@@ -1,5 +1,6 @@
 // src/pages/PrivacyPolicy.jsx — Complete bilingual legal content
 import React from 'react';
+import { useApp } from '../context/AppContext';
 
 function Section({ title, children }) {
   return (
@@ -33,7 +34,7 @@ function InfoRow({ icon, label, children }) {
 }
 
 export default function PrivacyPolicy() {
-  const handleBack = () => window.history.back();
+  const { setActiveTab } = useApp();
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', paddingBottom: 40 }}>
@@ -44,11 +45,12 @@ export default function PrivacyPolicy() {
         padding: 16, display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <button
-          onClick={handleBack}
+          onClick={() => setActiveTab('settings')}
           style={{
-            minWidth: 44, minHeight: 44, background: '#F1F8E9',
-            border: 'none', borderRadius: 12, cursor: 'pointer',
-            fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '44px', height: '44px', borderRadius: '22px',
+            background: '#F1F8E9', border: '2px solid #C8E6C9',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', fontSize: '18px', color: '#2E7D32'
           }}
           id="privacy-back-btn"
         >
@@ -68,7 +70,7 @@ export default function PrivacyPolicy() {
         <Section title="1. परिचय / Introduction">
           <p>Monsoon Mitra एक मुफ्त किसान सहायक ऐप है जो भारतीय किसानों को मौसम-आधारित सिंचाई सलाह देता है।</p>
           <p>Monsoon Mitra is a free farmer assistant app providing weather-based irrigation advice to Indian farmers. This policy explains what data we collect and how we use it.</p>
-          <p><strong>Developer:</strong> MS Abhishek | <strong>Email:</strong> msabhishekanni10@gmail.com</p>
+          <p><strong>Built together by MS Abhishek & Aayushi Goel</strong></p>
         </Section>
 
         <Section title="2. हम क्या जानकारी लेते हैं / What We Collect">
@@ -127,10 +129,16 @@ export default function PrivacyPolicy() {
         </Section>
 
         <Section title="8. संपर्क / Contact">
-          <p><strong>MS Abhishek</strong></p>
-          <p>Shobhit University, Meerut, Uttar Pradesh, India</p>
-          <p>Email: msabhishekanni10@gmail.com</p>
-          <p>GitHub: MSAbhishek22</p>
+          <div>
+            <p style={{ fontWeight: 700, color: '#1A1A1A' }}>MS Abhishek</p>
+            <p>Email: msabhishekanni10@gmail.com</p>
+            <p>GitHub: MSAbhishek22</p>
+            <br/>
+            <p style={{ fontWeight: 700, color: '#1A1A1A' }}>Aayushi Goel</p>
+            <p>Email: aayushigoel73@gmail.com</p>
+            <br/>
+            <p style={{ color: '#757575', fontSize: '14px' }}>Built together by MS Abhishek & Aayushi Goel</p>
+          </div>
         </Section>
       </div>
     </div>

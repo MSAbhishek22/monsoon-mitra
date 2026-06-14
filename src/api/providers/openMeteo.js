@@ -8,7 +8,8 @@ export async function fetchOpenMeteo({ lat, lon }) {
       "precipitation",
       "rain",
       "relative_humidity_2m",
-      "temperature_2m"
+      "temperature_2m",
+      "wind_speed_10m"
     ].join(","),
     daily: [
       "precipitation_probability_max",

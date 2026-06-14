@@ -1,5 +1,6 @@
 // src/pages/TermsOfService.jsx — Complete bilingual Terms
 import React from 'react';
+import { useApp } from '../context/AppContext';
 
 function Section({ title, children }) {
   return (
@@ -18,7 +19,7 @@ function Section({ title, children }) {
 }
 
 export default function TermsOfService() {
-  const handleBack = () => window.history.back();
+  const { setActiveTab } = useApp();
 
   return (
     <div style={{ background: '#FFFFFF', minHeight: '100vh', paddingBottom: 40 }}>
@@ -29,11 +30,12 @@ export default function TermsOfService() {
         padding: 16, display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <button
-          onClick={handleBack}
+          onClick={() => setActiveTab('settings')}
           style={{
-            minWidth: 44, minHeight: 44, background: '#F1F8E9',
-            border: 'none', borderRadius: 12, cursor: 'pointer',
-            fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '44px', height: '44px', borderRadius: '22px',
+            background: '#F1F8E9', border: '2px solid #C8E6C9',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', fontSize: '18px', color: '#2E7D32'
           }}
           id="terms-back-btn"
         >
@@ -105,9 +107,16 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="10. संपर्क / Contact">
-          <p><strong>MS Abhishek</strong></p>
-          <p>Shobhit University, Meerut, Uttar Pradesh, India</p>
-          <p>Email: msabhishekanni10@gmail.com</p>
+          <div>
+            <p style={{ fontWeight: 700, color: '#1A1A1A' }}>MS Abhishek</p>
+            <p>Email: msabhishekanni10@gmail.com</p>
+            <p>GitHub: MSAbhishek22</p>
+            <br/>
+            <p style={{ fontWeight: 700, color: '#1A1A1A' }}>Aayushi Goel</p>
+            <p>Email: aayushigoel73@gmail.com</p>
+            <br/>
+            <p style={{ color: '#757575', fontSize: '14px' }}>Built together by MS Abhishek & Aayushi Goel</p>
+          </div>
         </Section>
       </div>
     </div>

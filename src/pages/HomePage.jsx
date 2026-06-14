@@ -2,6 +2,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useWeather } from '../hooks/useWeather';
+import { useNotifications } from '../hooks/useNotifications';
 import { t } from '../i18n/index';
 import { getWeatherEmoji, getWeatherCondition } from '../api/weather';
 import FarmerHook from '../components/FarmerHook';
@@ -20,6 +21,7 @@ function getGreeting(lang) {
 export default function HomePage() {
   const { user, setActiveTab } = useApp();
   const { normalized, irrigationDecision, loading, weatherData } = useWeather();
+  const { permission, requestPermission } = useNotifications();
   const lang = user.language || 'hi';
   const greeting = getGreeting(lang);
 
@@ -29,13 +31,25 @@ export default function HomePage() {
   const condition = getWeatherCondition(rainProb, temp, lang);
 
   return (
-    <div className="min-h-screen bg-[#F1F8E9] pb-20 px-4 pt-4">
+    <div className="min-h-screen bg-[#F1F8E9] pb-20 px-4 pt-4 scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
       {/* Top Header */}
       <div className="flex items-center justify-between h-14">
         <span className="text-lg font-bold text-primary-900">🌾 Monsoon Mitra</span>
         <div className="flex items-center gap-2">
-          <button className="w-10 h-10 bg-white rounded-full shadow-card flex items-center justify-center tap-feedback">
+          <button 
+            onClick={async () => {
+              if (permission !== 'granted') {
+                const res = await requestPermission();
+                if (res) alert('सूचनाएं चालू हो गईं!');
+                else alert('सूचनाएं चालू नहीं हो सकीं। सेटिंग्स देखें।');
+              } else {
+                alert('सूचनाएं पहले से चालू हैं!');
+              }
+            }}
+            className="w-10 h-10 bg-white rounded-full shadow-card flex items-center justify-center tap-feedback relative"
+          >
             <span className="text-lg">🔔</span>
+            {permission !== 'granted' && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />}
           </button>
           {user.name && (
             <div className="w-8 h-8 rounded-full bg-primary-800 flex items-center justify-center">

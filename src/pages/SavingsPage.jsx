@@ -52,7 +52,7 @@ export default function SavingsPage() {
   }, [total, count]);
 
   return (
-    <div className="bg-[#F1F8E9] min-h-screen pb-20">
+    <div className="bg-[#F1F8E9] min-h-screen pb-20 scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
       {/* Hero */}
       <div className="rounded-b-[32px] px-5 pt-6 pb-10" style={{ background: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)' }}>
         <p className="text-base text-white/85">{t(lang, 'totalSavings')}</p>

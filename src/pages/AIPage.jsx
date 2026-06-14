@@ -36,7 +36,13 @@ export default function AIPage() {
   }, [messages, isLoading]);
 
   const handleSend = async (text) => {
-    const msg = (text || input).trim();
+    let msg = '';
+    if (typeof text === 'string' && text.trim() !== '') {
+      msg = text.trim();
+    } else {
+      msg = input.trim();
+    }
+    
     if (!msg || isLoading) return;
 
     const userMsg = { role: 'user', content: msg, timestamp: Date.now() };
@@ -91,7 +97,7 @@ export default function AIPage() {
   const suggestions = [t(lang, 'suggestWheat'), t(lang, 'suggestWeather'), t(lang, 'suggestPest'), t(lang, 'suggestFertilizer'), t(lang, 'suggestSchemes')];
 
   return (
-    <div className="flex flex-col h-screen bg-[#F8F8F8]">
+    <div className="flex flex-col h-screen bg-[#F8F8F8] scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-4 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #2E7D32, #388E3C)' }}>
         <div className="flex items-center gap-2">
@@ -115,7 +121,7 @@ export default function AIPage() {
             <span className="text-5xl mb-3">🤖</span>
             <h2 className="text-xl font-bold text-primary-800">{t(lang, 'aiWelcome')}</h2>
             <p className="text-[15px] text-[#757575] mt-2" style={{ lineHeight: 1.75 }}>{t(lang, 'aiWelcomeSub')}</p>
-            <div className="flex flex-wrap gap-2 mt-6 justify-center">
+            <div className="flex flex-wrap gap-2 mt-6 justify-center hide-scrollbar">
               {suggestions.map((s, i) => (
                 <button key={i} onClick={() => handleSend(s)} className="px-4 py-2.5 bg-white border-2 border-primary-200 rounded-[20px] text-sm text-primary-800 shadow-card tap-feedback">
                   {s}
@@ -144,7 +150,12 @@ export default function AIPage() {
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
             placeholder={t(lang, 'askQuestion')}
             className="flex-1 min-h-[48px] bg-[#F1F8E9] border-2 border-[#E0E0E0] rounded-3xl px-4 py-3 text-[15px] text-[#1A1A1A] focus:border-primary-800 transition-colors duration-200"
             id="ai-input"
@@ -152,7 +163,7 @@ export default function AIPage() {
           <VoiceButton isListening={isListening} onPress={handleVoice} />
           <button
             onClick={() => handleSend()}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() && !isLoading}
             className={`w-12 h-12 rounded-3xl flex items-center justify-center tap-feedback ${input.trim() ? 'bg-primary-800 shadow-btn' : 'bg-[#E0E0E0]'}`}
             id="ai-send-btn"
           >

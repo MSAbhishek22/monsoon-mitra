@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { fetchOpenMeteo } from '../api/providers/openMeteo';
 import { getCachedWeather, setCachedWeather } from '../api/cache';
 import { useApp } from './AppContext';
+import { useNotifications } from '../hooks/useNotifications';
+import { storage } from '../utils/storage';
 
 const WeatherContext = createContext(null);
 
@@ -62,6 +64,32 @@ export function WeatherProvider({ children }) {
     daily: weatherData.daily || [],
     hourly: weatherData.raw?.hourly || {},
   } : null;
+
+  const { sendLocalWeatherAlert, permission } = useNotifications();
+
+  useEffect(() => {
+    if (!normalized || permission !== 'granted' || !sendLocalWeatherAlert) return;
+
+    const today = new Date().toDateString();
+    const rainProb = normalized.rainProbabilityNext24h ?? 0;
+    const temp = normalized.temperatureCelsius ?? 30;
+
+    if (rainProb > 80) {
+      const lastFlood = storage.get('last_flood_alert_date');
+      if (lastFlood !== today) {
+        sendLocalWeatherAlert('flood', `${rainProb}% बारिश की संभावना। फसल और सामान सुरक्षित करें।`);
+        storage.set('last_flood_alert_date', today);
+      }
+    }
+
+    if (temp > 40 && rainProb < 10) {
+      const lastDrought = storage.get('last_drought_alert_date');
+      if (lastDrought !== today) {
+        sendLocalWeatherAlert('drought');
+        storage.set('last_drought_alert_date', today);
+      }
+    }
+  }, [normalized, permission, sendLocalWeatherAlert]);
 
   const value = {
     weatherData,
