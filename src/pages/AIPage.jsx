@@ -1,175 +1,287 @@
-// src/pages/AIPage.jsx — Section 10 complete spec
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { useWeather } from '../hooks/useWeather';
 import { useVoice } from '../hooks/useVoice';
-import { t } from '../i18n/index';
-import { sendMessage, buildWeatherContext } from '../api/gemini';
-import { getOfflineResponse } from '../data/offlineResponses';
-import { UserBubble, AIBubble, TypingIndicator } from '../components/ai/ChatBubble';
-import { ChatSkeleton } from '../components/common/SkeletonCard';
-import VoiceButton from '../components/ai/VoiceButton';
-import OfflineFallback from '../components/ai/OfflineFallback';
-import { addHistory } from '../state/aiHistory';
+import { storage } from '../utils/storage';
 import { trackEvent, EVENTS } from '../firebase/analytics';
 
 export default function AIPage() {
   const { user, isOnline } = useApp();
-  const { normalized } = useWeather();
-  const lang = user.language || 'hi';
-  const { isListening, startRecording, speak } = useVoice(lang);
-
+  const lang = user?.language || 'hi';
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
+  // Auto-scroll on new message
   useEffect(() => {
-    // Simulate initial AI load for realistic feel or fetch history
-    const t = setTimeout(() => setIsInitialLoad(false), 800);
-    return () => clearTimeout(t);
-  }, []);
-  const chatRef = useRef(null);
-
-  useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const handleSend = async (text) => {
-    let msg = '';
-    if (typeof text === 'string' && text.trim() !== '') {
-      msg = text.trim();
-    } else {
-      msg = input.trim();
+  // Pick up pending voice query from FAB
+  useEffect(() => {
+    const pending = storage.get('pending_voice_query');
+    if (pending) {
+      storage.remove('pending_voice_query');
+      setTimeout(() => handleSend(pending), 400);
     }
-    
-    if (!msg || isLoading) return;
+  }, []);
 
-    const userMsg = { role: 'user', content: msg, timestamp: Date.now() };
+  const { isListening, isSupported, startListening, stopListening, speak } = useVoice(lang, (transcript) => {
+    handleSend(transcript);
+  });
+
+  const handleSend = async (overrideText) => {
+    const text = (typeof overrideText === 'string' ? overrideText : inputText).trim();
+    if (!text || isLoading) return;
+
+    setInputText('');
+    if (inputRef.current) {
+      inputRef.current.style.height = '48px';
+    }
+
+    const userMsg = { id: Date.now(), role: 'user', content: text };
     setMessages(prev => [...prev, userMsg]);
-    setInput('');
     setIsLoading(true);
-    trackEvent(EVENTS.AI_MESSAGE_SENT);
+    trackEvent(EVENTS.AI_MESSAGE_SENT, { length: text.length, lang });
 
-    let reply = '';
-    if (!isOnline) {
-      reply = getOfflineResponse(msg, lang);
-    } else {
-      const weatherCtx = buildWeatherContext(normalized);
-      const history = messages.map(m => ({ role: m.role, content: m.content }));
-      
-      try {
-        const result = await sendMessage({ message: msg, language: lang, crop: user.crops, weatherContext: weatherCtx, conversationHistory: history });
-        if (result.status === 429) {
-          reply = `⏳ बहुत जल्दी सवाल पूछे। 60 सेकंड बाद फिर कोशिश करें।`;
-        } else if (result.reply) {
-          reply = result.reply;
-        } else {
-          reply = getOfflineResponse(msg, lang);
-        }
-      } catch (err) {
-        if (err.message?.includes('429')) {
-          reply = `⏳ बहुत जल्दी सवाल पूछे। कुछ समय बाद फिर कोशिश करें।`;
-        } else {
-          reply = getOfflineResponse(msg, lang);
-        }
+    const weatherCache = storage.get('weather_cache');
+    const weatherCtx = weatherCache
+      ? `तापमान: ${weatherCache.current?.temperature}°C, स्थिति: ${weatherCache.current?.description}, बारिश: ${weatherCache.rainProbabilityNext24h}%`
+      : 'मौसम डेटा उपलब्ध नहीं';
+
+    const history = messages.slice(-6).map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      content: m.content
+    }));
+
+    try {
+      if (!navigator.onLine) throw new Error('offline');
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          language: lang,
+          crop: Array.isArray(user.crops) ? user.crops : ['गेहूं'],
+          weatherContext: weatherCtx,
+          conversationHistory: history
+        })
+      });
+
+      if (res.status === 429) {
+        const d = await res.json();
+        setMessages(prev => [...prev, { id: Date.now(), role: 'ai', content: d.error || '⏳ थोड़ी देर बाद कोशिश करें।' }]);
+        return;
       }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      if (!data.reply) throw new Error('empty reply');
+
+      setMessages(prev => [...prev, { id: Date.now(), role: 'ai', content: data.reply }]);
+      trackEvent(EVENTS.AI_RESPONSE_RECEIVED, { tokens: data.tokens || 0 });
+
+    } catch (err) {
+      const { getOfflineResponse } = await import('../data/offlineResponses.js');
+      const fallback = getOfflineResponse(text, lang);
+      setMessages(prev => [...prev, {
+        id: Date.now(), role: 'ai',
+        content: err.message === 'offline'
+          ? `📴 ऑफलाइन मोड\n\n${fallback}`
+          : fallback
+      }]);
+    } finally {
+      setIsLoading(false);
     }
-
-    const aiMsg = { role: 'model', content: reply, timestamp: Date.now() };
-    setMessages(prev => [...prev, aiMsg]);
-    addHistory({ q: msg, a: reply });
-    setIsLoading(false);
   };
 
-  const handleVoice = () => {
-    trackEvent(EVENTS.AI_VOICE_USED);
-    startRecording((transcript) => {
-      if (transcript) { setInput(transcript); handleSend(transcript); }
-    });
+  const CHIPS = {
+    hi: ['गेहूं को कितना पानी चाहिए?', 'आज सिंचाई करनी चाहिए?', 'फसल को कीड़ों से कैसे बचाएं?', 'कौन सी खाद डालूं?', 'PM-KISAN योजना क्या है?'],
+    en: ['How much water for wheat?', 'Should I irrigate today?', 'How to protect crops from pests?', 'Which fertilizer to use?', 'What is PM-KISAN?'],
+    bn: ['আজ সেচ দেওয়া উচিত?', 'ফসলে কীটপতঙ্গ থেকে বাঁচাবো কীভাবে?'],
+    mr: ['आज पाणी द्यावे का?', 'पिकाला कीडीपासून कसे वाचवायचे?'],
+    pa: ['ਅੱਜ ਸਿੰਚਾਈ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ?', 'ਫ਼ਸਲ ਨੂੰ ਕੀੜਿਆਂ ਤੋਂ ਕਿਵੇਂ ਬਚਾਈਏ?'],
   };
+  const chips = CHIPS[lang] || CHIPS.hi;
 
-  const handleListen = (text) => {
-    trackEvent(EVENTS.AI_RESPONSE_READ_ALOUD);
-    speak(text);
+  const placeholders = {
+    hi: 'कोई भी खेती का सवाल पूछें...', en: 'Ask any farming question...',
+    bn: 'যেকোনো প্রশ্ন করুন...', mr: 'कोणताही प्रश्न विचारा...', pa: 'ਕੋਈ ਵੀ ਸਵਾਲ ਪੁੱਛੋ...'
   };
-
-  const suggestions = [t(lang, 'suggestWheat'), t(lang, 'suggestWeather'), t(lang, 'suggestPest'), t(lang, 'suggestFertilizer'), t(lang, 'suggestSchemes')];
 
   return (
-    <div className="flex flex-col h-screen bg-[#F8F8F8] scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F8FAF8' }}>
       {/* Header */}
-      <div className="h-16 flex items-center justify-between px-4 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #2E7D32, #388E3C)' }}>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🤖</span>
-          <span className="text-lg font-bold text-white">{t(lang, 'aiSahayak')}</span>
+      <div style={{
+        background: 'linear-gradient(135deg, #1B5E20, #2E7D32)',
+        padding: '16px 20px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexShrink: 0
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '24px' }}>🤖</span>
+          <span style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF' }}>AI सहायक</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-400' : 'bg-[#BDBDBD]'}`} />
-          <span className="text-xs text-white">{isOnline ? t(lang, 'online') : t(lang, 'offline')}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: navigator.onLine ? '#69F0AE' : '#BDBDBD' }} />
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)' }}>
+              {navigator.onLine ? 'ऑनलाइन' : 'ऑफलाइन'}
+            </span>
+          </div>
+          {messages.length > 0 && (
+            <button onClick={() => setMessages([])} style={{
+              background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px',
+              padding: '6px 10px', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px'
+            }}>🗑️</button>
+          )}
         </div>
       </div>
 
-      {!isOnline && <OfflineFallback language={lang} />}
+      {/* Offline banner */}
+      {!navigator.onLine && (
+        <div style={{ background: '#FFF3E0', borderBottom: '2px solid #FFB300', padding: '10px 16px' }}>
+          <p style={{ fontSize: '13px', color: '#E65100', margin: 0 }}>⚠️ ऑफलाइन मोड — सीमित जवाब मिलेंगे</p>
+        </div>
+      )}
 
-      {/* Chat Area */}
-      <div ref={chatRef} className="flex-1 overflow-y-auto p-4">
-        {isInitialLoad ? (
-          <ChatSkeleton />
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <span className="text-5xl mb-3">🤖</span>
-            <h2 className="text-xl font-bold text-primary-800">{t(lang, 'aiWelcome')}</h2>
-            <p className="text-[15px] text-[#757575] mt-2" style={{ lineHeight: 1.75 }}>{t(lang, 'aiWelcomeSub')}</p>
-            <div className="flex flex-wrap gap-2 mt-6 justify-center hide-scrollbar">
-              {suggestions.map((s, i) => (
-                <button key={i} onClick={() => handleSend(s)} className="px-4 py-2.5 bg-white border-2 border-primary-200 rounded-[20px] text-sm text-primary-800 shadow-card tap-feedback">
-                  {s}
+      {/* Chat area */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }} className="hide-scrollbar">
+        {messages.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px' }}>
+            <span style={{ fontSize: '56px', marginBottom: '16px' }}>🤖</span>
+            <p style={{ fontSize: '20px', fontWeight: 700, color: '#1B5E20', marginBottom: '8px', textAlign: 'center' }}>
+              {lang === 'hi' ? 'नमस्ते! मैं AI सहायक हूं' : lang === 'en' ? 'Hello! I am AI Sahayak' : 'नमस्ते! मैं AI सहायक हूं'}
+            </p>
+            <p style={{ fontSize: '15px', color: '#5A7A5A', marginBottom: '24px', textAlign: 'center', lineHeight: 1.6 }}>
+              {lang === 'hi' ? 'खेती के बारे में कुछ भी पूछें' : 'Ask me anything about farming'}
+            </p>
+            <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', width: '100%', paddingBottom: '8px' }} className="hide-scrollbar">
+              {chips.map(chip => (
+                <button key={chip} onClick={() => handleSend(chip)} style={{
+                  background: '#FFFFFF', border: '2px solid #A5D6A7', borderRadius: '20px',
+                  padding: '10px 16px', fontSize: '14px', color: '#1B5E20', fontWeight: 500,
+                  cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)', WebkitTapHighlightColor: 'transparent'
+                }}>
+                  {chip}
                 </button>
               ))}
             </div>
           </div>
         ) : (
           <>
-            {messages.map((msg, i) =>
-              msg.role === 'user' ? (
-                <UserBubble key={i} text={msg.content} timestamp={msg.timestamp} />
-              ) : (
-                <AIBubble key={i} text={msg.content} timestamp={msg.timestamp} onListen={() => handleListen(msg.content)} onSave={() => {}} />
-              )
+            {messages.map(msg => (
+              <div key={msg.id} style={{
+                display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                marginBottom: '16px', alignItems: 'flex-end', gap: '8px'
+              }}>
+                {msg.role === 'ai' && <span style={{ fontSize: '24px', flexShrink: 0, alignSelf: 'flex-start' }}>🤖</span>}
+                <div style={{ maxWidth: '82%' }}>
+                  <div style={{
+                    padding: '12px 16px', lineHeight: 1.7,
+                    borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    background: msg.role === 'user'
+                      ? 'linear-gradient(135deg, #2E7D32, #388E3C)'
+                      : '#FFFFFF',
+                    color: msg.role === 'user' ? '#FFFFFF' : '#0D1B0D',
+                    fontSize: '15px',
+                    boxShadow: msg.role === 'user' ? '0 4px 12px rgba(46,125,50,0.3)' : '0 2px 8px rgba(0,0,0,0.08)',
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {msg.content}
+                  </div>
+                  {msg.role === 'ai' && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button onClick={() => speak(msg.content)} style={{
+                        background: '#E8F5E9', color: '#1B5E20', border: 'none',
+                        borderRadius: '8px', padding: '6px 12px', fontSize: '12px',
+                        fontWeight: 600, cursor: 'pointer'
+                      }}>🔊 सुनें</button>
+                      <button onClick={() => {
+                        const saved = storage.get('saved_messages') || [];
+                        storage.set('saved_messages', [...saved, msg]);
+                      }} style={{
+                        background: '#FFF8E1', color: '#F57F17', border: 'none',
+                        borderRadius: '8px', padding: '6px 12px', fontSize: '12px',
+                        fontWeight: 600, cursor: 'pointer'
+                      }}>⭐ सेव</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'flex-end' }}>
+                <span style={{ fontSize: '24px' }}>🤖</span>
+                <div style={{ background: '#FFFFFF', borderRadius: '18px 18px 18px 4px', padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#A5D6A7', animation: 'bounce 1.2s infinite', animationDelay: `${i * 0.2}s` }} />
+                  ))}
+                </div>
+              </div>
             )}
-            {isLoading && <TypingIndicator />}
+            <div ref={messagesEndRef} />
           </>
         )}
       </div>
 
-      {/* Input Bar */}
-      <div className="bg-white border-t border-[#E0E0E0] px-4 py-3 flex-shrink-0 safe-bottom">
-        <div className="flex items-center gap-2.5">
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder={t(lang, 'askQuestion')}
-            className="flex-1 min-h-[48px] bg-[#F1F8E9] border-2 border-[#E0E0E0] rounded-3xl px-4 py-3 text-[15px] text-[#1A1A1A] focus:border-primary-800 transition-colors duration-200"
-            id="ai-input"
-          />
-          <VoiceButton isListening={isListening} onPress={handleVoice} />
-          <button
-            onClick={() => handleSend()}
-            disabled={!input.trim() && !isLoading}
-            className={`w-12 h-12 rounded-3xl flex items-center justify-center tap-feedback ${input.trim() ? 'bg-primary-800 shadow-btn' : 'bg-[#E0E0E0]'}`}
-            id="ai-send-btn"
-          >
-            <span className="text-white text-xl">→</span>
+      {/* Input bar */}
+      <div style={{
+        background: '#FFFFFF', borderTop: '2px solid #E8F5E9',
+        padding: '12px 16px',
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+        display: 'flex', gap: '10px', alignItems: 'flex-end', flexShrink: 0
+      }}>
+        {isSupported && (
+          <button onClick={isListening ? stopListening : startListening} style={{
+            width: '48px', height: '48px', borderRadius: '24px', border: 'none',
+            background: isListening ? '#FFEBEE' : '#F1F8E9',
+            outline: `2px solid ${isListening ? '#C62828' : '#C8E6C9'}`,
+            fontSize: '20px', cursor: 'pointer', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: isListening ? 'pulse 1s infinite' : 'none'
+          }}>
+            {isListening ? '⏹️' : '🎤'}
           </button>
-        </div>
+        )}
+        <textarea
+          ref={inputRef}
+          value={inputText}
+          onChange={e => setInputText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          onInput={e => { e.target.style.height = '48px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
+          placeholder={placeholders[lang] || placeholders.hi}
+          rows={1}
+          style={{
+            flex: 1, minHeight: '48px', maxHeight: '120px',
+            background: '#F0F7F0', border: '2px solid #C8E6C9',
+            borderRadius: '24px', padding: '12px 16px',
+            fontSize: '15px', color: '#0D1B0D', resize: 'none',
+            outline: 'none', fontFamily: 'inherit', lineHeight: 1.5,
+            overflowY: 'auto'
+          }}
+          onFocus={e => e.target.style.border = '2px solid #2E7D32'}
+          onBlur={e => e.target.style.border = '2px solid #C8E6C9'}
+        />
+        <button
+          onClick={() => handleSend()}
+          disabled={!inputText.trim() || isLoading}
+          style={{
+            width: '48px', height: '48px', borderRadius: '24px', border: 'none',
+            background: inputText.trim() && !isLoading
+              ? 'linear-gradient(135deg, #1B5E20, #2E7D32)'
+              : '#E0E0E0',
+            color: '#FFFFFF', fontSize: '20px', cursor: inputText.trim() ? 'pointer' : 'default',
+            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: inputText.trim() ? '0 4px 12px rgba(27,94,32,0.4)' : 'none',
+            transition: 'all 200ms ease'
+          }}
+        >
+          {isLoading ? '⏳' : '➤'}
+        </button>
       </div>
     </div>
   );

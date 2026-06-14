@@ -27,11 +27,13 @@ export default function SavingsTracker({ language, onNavigate }) {
           }}
         />
       </div>
-      <button
-        onClick={() => onNavigate?.('savings')}
-        className="text-sm font-semibold text-primary-800 mt-3 tap-feedback text-right block w-full"
-      >
-        {t(language, 'viewFullDetails')}
+      <button onClick={() => onNavigate?.('savings')} style={{
+        background: 'none', border: 'none', color: '#1B5E20',
+        fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+        float: 'right', marginTop: '8px', padding: '4px 0',
+        textDecoration: 'underline', textDecorationColor: 'rgba(27,94,32,0.3)'
+      }}>
+        पूरी जानकारी देखें →
       </button>
     </div>
   );

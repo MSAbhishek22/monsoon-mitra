@@ -39,8 +39,24 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showCropPicker, setShowCropPicker] = useState(false);
+  const [selectedCrops, setSelectedCrops] = useState(() => storage.get('user_crops') || ['गेहूं']);
   const [cityInput, setCityInput] = useState('');
   const { requestLocation } = useGeoLocation();
+
+  const LANGUAGES = [
+    { code: 'hi', name: 'हिन्दी', subname: 'Hindi' },
+    { code: 'en', name: 'English', subname: 'English' },
+    { code: 'bn', name: 'বাংলা', subname: 'Bengali' },
+    { code: 'mr', name: 'मराठी', subname: 'Marathi' },
+    { code: 'pa', name: 'ਪੰਜਾਬੀ', subname: 'Punjabi' },
+  ];
+
+  const ALL_CROPS = [
+    { emoji: '🌾', name: 'गेहूं' }, { emoji: '🌾', name: 'धान' }, { emoji: '🫘', name: 'दाल' },
+    { emoji: '🌽', name: 'मक्का' }, { emoji: '🥕', name: 'सब्जियां' }, { emoji: '🥔', name: 'आलू' },
+    { emoji: '🍅', name: 'टमाटर' }, { emoji: '➕', name: 'अन्य' }
+  ];
   
   const [notifPrefs, setNotifPrefs] = useState(
     () => storage.get('notification_prefs') || { flood: true, drought: true, irrigation: false, weather: false }
@@ -98,20 +114,68 @@ export default function SettingsPage() {
       <div className="mx-4 mt-4 bg-white rounded-2xl shadow-card overflow-hidden">
         <h3 className="text-base font-bold text-[#1A1A1A] px-4 pt-4 pb-2">{t(lang, 'myInfo')}</h3>
         <SettingsRow icon="👤" label={t(lang, 'name')} value={user.name || t(lang, 'setIt')} chevron />
-        <SettingsRow icon="🌾" label={t(lang, 'crop')} value={user.crops?.map(c => getCropName(c, lang)).join(', ') || t(lang, 'setIt')} chevron />
+        <SettingsRow icon="🌾" label={t(lang, 'crop')} value={user.crops?.map(c => getCropName(c, lang)).join(', ') || t(lang, 'setIt')} chevron onClick={() => setShowCropPicker(true)} />
         <SettingsRow icon="📍" label={t(lang, 'location')} value={user.location?.city || 'Delhi'} chevron onClick={() => setShowLocationPicker(true)} />
-        <SettingsRow icon="🗣️" label={t(lang, 'language')} value={getLanguageName(lang)} chevron onClick={() => setShowLangPicker(!showLangPicker)} />
+        <SettingsRow icon="🗣️" label={t(lang, 'language')} value={getLanguageName(lang)} chevron onClick={() => setShowLangPicker(true)} />
       </div>
 
       {/* Language Picker */}
       {showLangPicker && (
-        <div className="mx-4 mt-2 bg-white rounded-2xl shadow-card p-4 animate-slide-down">
-          {LANGUAGE_OPTIONS.map(l => (
-            <button key={l.code} onClick={() => { updateUser({ language: l.code }); setShowLangPicker(false); }}
-              className={`w-full text-left px-4 py-3 rounded-lg mb-1 tap-feedback ${lang === l.code ? 'bg-primary-50 text-primary-800 font-semibold' : 'text-[#1A1A1A]'}`}>
-              {l.native} <span className="text-xs text-[#757575]">({l.english})</span>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setShowLangPicker(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '24px 24px 0 0', padding: '28px 20px 40px', width: '100%' }}>
+            <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>🗣️ भाषा चुनें</p>
+            {LANGUAGES.map(langOpt => (
+              <button key={langOpt.code} onClick={() => { updateUser({ language: langOpt.code }); storage.set('user_language', langOpt.code); setShowLangPicker(false); window.location.reload(); }}
+                style={{
+                  width: '100%', height: '60px', display: 'flex', alignItems: 'center', justifyItems: 'space-between',
+                  padding: '0 16px', borderRadius: '12px', border: 'none', cursor: 'pointer', marginBottom: '8px',
+                  background: user.language === langOpt.code ? '#E8F5E9' : '#F8F8F8',
+                  outline: user.language === langOpt.code ? '2px solid #2E7D32' : 'none'
+                }}>
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                  <p style={{ fontSize: '18px', fontWeight: 700, color: '#0D1B0D', margin: 0 }}>{langOpt.name}</p>
+                  <p style={{ fontSize: '13px', color: '#757575', margin: 0 }}>{langOpt.subname}</p>
+                </div>
+                {user.language === langOpt.code && <span style={{ fontSize: '20px', color: '#2E7D32' }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Crop Picker */}
+      {showCropPicker && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setShowCropPicker(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '24px 24px 0 0', padding: '28px 20px 40px', width: '100%' }}>
+            <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>🌾 फसल चुनें</p>
+            <p style={{ fontSize: '14px', color: '#757575', marginBottom: '20px' }}>एक या अधिक फसलें चुन सकते हैं</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+              {ALL_CROPS.map(crop => {
+                const selected = selectedCrops.includes(crop.name);
+                return (
+                  <button key={crop.name}
+                    onClick={() => setSelectedCrops(prev => selected ? prev.filter(c => c !== crop.name) : [...prev, crop.name])}
+                    style={{
+                      height: '64px', display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '0 16px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                      background: selected ? '#E8F5E9' : '#F8F8F8',
+                      outline: selected ? '2px solid #2E7D32' : '2px solid transparent',
+                      transition: 'all 200ms ease'
+                    }}>
+                    <span style={{ fontSize: '24px' }}>{crop.emoji}</span>
+                    <span style={{ fontSize: '16px', fontWeight: selected ? 700 : 400, color: selected ? '#1B5E20' : '#0D1B0D' }}>{crop.name}</span>
+                    {selected && <span style={{ marginLeft: 'auto', color: '#2E7D32', fontWeight: 700 }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => { updateUser({ crops: selectedCrops }); storage.set('user_crops', selectedCrops); setShowCropPicker(false); }}
+              style={{ width: '100%', height: '56px', background: 'linear-gradient(135deg, #1B5E20, #2E7D32)', color: '#FFFFFF', border: 'none', borderRadius: '14px', fontSize: '17px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 6px 20px rgba(27,94,32,0.4)' }}>
+              ✅ सेव करें ({selectedCrops.length} फसल)
             </button>
-          ))}
+          </div>
         </div>
       )}
 
@@ -216,9 +280,9 @@ export default function SettingsPage() {
       <div className="mx-4 mt-4 bg-white rounded-2xl shadow-card overflow-hidden">
         <h3 className="text-base font-bold text-[#1A1A1A] px-4 pt-4 pb-2">{t(lang, 'appInfo')}</h3>
         <SettingsRow icon="📱" label={t(lang, 'version')} value="1.0.0" />
-        <SettingsRow icon="🔒" label={t(lang, 'privacyPolicy')} chevron onClick={() => window.open('/privacy', '_blank')} />
-        <SettingsRow icon="📋" label={t(lang, 'termsOfService')} chevron onClick={() => window.open('/terms', '_blank')} />
-        <SettingsRow icon="⭐" label={t(lang, 'rateApp')} chevron />
+        <SettingsRow icon="🔒" label={t(lang, 'privacyPolicy')} chevron onClick={() => window.location.href = '/privacy'} />
+        <SettingsRow icon="📋" label={t(lang, 'termsOfService')} chevron onClick={() => window.location.href = '/terms'} />
+        <SettingsRow icon="⭐" label={t(lang, 'rateApp')} chevron onClick={() => window.open('https://play.google.com/store/apps', '_blank')} />
         <SettingsRow icon="📤" label={t(lang, 'shareApp')} chevron onClick={handleShare} />
         <SettingsRow icon="🐛" label={t(lang, 'reportBug')} chevron onClick={() => window.open('mailto:msabhishekanni10@gmail.com?subject=Bug Report - Monsoon Mitra')} />
       </div>

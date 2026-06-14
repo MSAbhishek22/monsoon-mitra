@@ -250,14 +250,14 @@ function AppShell() {
       <MainAppFlow />
       {showInstallBanner && (
         <div style={{
-          position: 'fixed', bottom: '72px', left: '16px', right: '16px', zIndex: 400,
+          position: 'fixed', bottom: '72px', left: '16px', right: '16px', zIndex: 50,
           background: '#FFFFFF', border: '2px solid #2E7D32',
           borderRadius: '16px', padding: '16px',
           boxShadow: '0 4px 20px rgba(46,125,50,0.2)',
           display: 'flex', alignItems: 'center', gap: '12px'
         }}>
           <span style={{ fontSize: '32px' }}>📲</span>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, paddingRight: '20px' }}>
             <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>
               ऐप इंस्टॉल करें
             </p>
@@ -272,7 +272,9 @@ function AppShell() {
             इंस्टॉल
           </button>
           <button onClick={() => setShowInstallBanner(false)} style={{
-            background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#BDBDBD'
+            position: 'absolute', top: '8px', right: '8px',
+            background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#BDBDBD',
+            lineHeight: 1, width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>×</button>
         </div>
       )}

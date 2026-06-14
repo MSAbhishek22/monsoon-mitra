@@ -10,20 +10,16 @@ import SavingsTracker from '../components/SavingsTracker';
 import ForecastStrip from '../components/weather/ForecastStrip';
 import { WeatherCardSkeleton, ForecastStripSkeleton } from '../components/common/LoadingSpinner';
 
-function getGreeting(lang) {
-  const h = new Date().getHours();
-  if (h >= 5 && h < 12) return { text: t(lang, 'goodMorning'), emoji: '🌅' };
-  if (h >= 12 && h < 17) return { text: t(lang, 'goodAfternoon'), emoji: '☀️' };
-  if (h >= 17 && h < 20) return { text: t(lang, 'goodEvening'), emoji: '🌇' };
-  return { text: t(lang, 'goodNight'), emoji: '🌙' };
-}
-
 export default function HomePage() {
   const { user, setActiveTab } = useApp();
   const { normalized, irrigationDecision, loading, weatherData } = useWeather();
   const { permission, requestPermission } = useNotifications();
   const lang = user.language || 'hi';
-  const greeting = getGreeting(lang);
+  
+  const userName = user.name || '';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'सुप्रभात' : hour < 17 ? 'नमस्ते' : hour < 20 ? 'शुभ संध्या' : 'शुभ रात्रि';
+  const greetingEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : hour < 20 ? '🌇' : '🌙';
 
   const temp = normalized?.temperatureCelsius;
   const rainProb = normalized?.rainProbabilityNext24h || 0;
@@ -64,12 +60,12 @@ export default function HomePage() {
         className="mt-4 rounded-[20px] p-5 animate-slide-down"
         style={{ background: 'linear-gradient(135deg, #2E7D32 0%, #388E3C 50%, #1B5E20 100%)', boxShadow: '0 8px 24px rgba(46,125,50,0.3)' }}
       >
-        <p className="text-[22px] font-bold text-white">{greeting.text} {greeting.emoji}</p>
-        {user.name && (
-          <p className="text-[15px] text-white/90 mt-1.5">
-            {user.name} जी, {irrigationDecision ? (irrigationDecision.decision === 'skip' ? 'आज पानी मत दें' : 'आज पानी दें') : ''}
-          </p>
-        )}
+        <p style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+          {greeting}{userName ? `, ${userName} जी` : '!'} {greetingEmoji}
+        </p>
+        <p className="text-[15px] text-white/90 mt-1.5">
+          {irrigationDecision ? (irrigationDecision.decision === 'skip' ? 'आज पानी मत दें' : 'आज पानी दें') : ''}
+        </p>
         <div className="flex items-center justify-between mt-4">
           <div>
             <span className="text-4xl font-extrabold text-white">{temp?.toFixed(0) ?? '--'}°C</span>
@@ -96,16 +92,31 @@ export default function HomePage() {
         <h3 className="text-base font-bold text-[#1A1A1A] mb-3">{t(lang, 'quickHelp')}</h3>
         <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: '🤖', label: t(lang, 'askAI'), sub: t(lang, 'askAISub'), tab: 'ai' },
-            { icon: '📊', label: t(lang, 'sevenDayWeather'), sub: t(lang, 'sevenDayWeatherSub'), tab: 'weather' },
-            { icon: '💰', label: t(lang, 'viewSavings'), sub: t(lang, 'viewSavingsSub'), tab: 'savings' },
-            { icon: '⚙️', label: t(lang, 'settingsLabel'), sub: t(lang, 'settingsSub'), tab: 'settings' },
-          ].map((action, i) => (
-            <button key={i} onClick={() => setActiveTab(action.tab)} className="h-20 bg-white rounded-2xl shadow-card p-4 flex items-center gap-3 tap-feedback text-left">
-              <span className="text-[32px]">{action.icon}</span>
+            { icon: '🤖', emoji: true, title: 'AI से पूछें', sub: 'कोई भी सवाल पूछें', tab: 'ai', color: '#E8F5E9' },
+            { icon: '📊', emoji: true, title: '7 दिन मौसम', sub: 'पूरे हफ्ते का हाल', tab: 'weather', color: '#E1F5FE' },
+            { icon: '💰', emoji: true, title: 'बचत देखें', sub: 'आपकी कुल बचत', tab: 'savings', color: '#FFF8E1' },
+            { icon: '⚙️', emoji: true, title: 'सेटिंग', sub: 'भाषा व फसल बदलें', tab: 'settings', color: '#F3E5F5' },
+          ].map(action => (
+            <button
+              key={action.tab}
+              onClick={() => setActiveTab(action.tab)}
+              style={{
+                height: '80px', background: action.color, borderRadius: '16px',
+                border: '1px solid rgba(0,0,0,0.06)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.07)',
+                padding: '0 16px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '12px',
+                textAlign: 'left', width: '100%',
+                transition: 'transform 150ms ease, box-shadow 150ms ease',
+                WebkitTapHighlightColor: 'transparent'
+              }}
+              onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)'; }}
+              onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.07)'; }}
+            >
+              <span style={{ fontSize: '28px' }}>{action.icon}</span>
               <div>
-                <p className="text-sm font-semibold text-[#1A1A1A]">{action.label}</p>
-                <p className="text-xs text-[#757575]">{action.sub}</p>
+                <p style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B0D', margin: 0 }}>{action.title}</p>
+                <p style={{ fontSize: '12px', color: '#5A7A5A', margin: '2px 0 0' }}>{action.sub}</p>
               </div>
             </button>
           ))}

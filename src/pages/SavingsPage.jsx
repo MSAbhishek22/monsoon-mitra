@@ -1,5 +1,5 @@
 // src/pages/SavingsPage.jsx — Section 14 spec
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { t } from '../i18n/index';
 import { storage } from '../utils/storage';
@@ -44,6 +44,33 @@ export default function SavingsPage() {
   const tankers = Math.floor(liters / 1000);
   const goal = storage.get('savings_goal') || 5000;
 
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [logEntry, setLogEntry] = useState({
+    date: new Date().toISOString().split('T')[0],
+    crop: (storage.get('user_crops') || ['गेहूं'])[0],
+    durationHours: 3,
+    aiSaidSkip: false,
+    didSkip: false,
+  });
+
+  const CROP_SAVINGS = { 'गेहूं': 450, 'धान': 650, 'मक्का': 400, 'सब्जियां': 750, 'आलू': 500, 'टमाटर': 600, 'दाल': 350 };
+
+  const saveIrrigationEntry = () => {
+    const existing = storage.get('irrigation_log') || [];
+    const entry = {
+      id: `log_${Date.now()}`,
+      date: new Date(logEntry.date).toISOString(),
+      crop: logEntry.crop,
+      durationHours: logEntry.durationHours,
+      aiSaidSkip: logEntry.aiSaidSkip,
+      didSkip: logEntry.didSkip,
+      savings: logEntry.aiSaidSkip && logEntry.didSkip ? (CROP_SAVINGS[logEntry.crop] || 500) : 0,
+    };
+    storage.set('irrigation_log', [entry, ...existing]);
+    setShowLogModal(false);
+    window.location.reload();
+  };
+
   const { current: displayTotal } = useCountUp(total);
   const pct = goal > 0 ? Math.min((total / goal) * 100, 100) : 0;
 
@@ -77,7 +104,7 @@ export default function SavingsPage() {
       {/* Irrigation Log */}
       <div className="mx-4 -mt-4 bg-white rounded-2xl p-5 relative z-10" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
         <h3 className="text-[17px] font-bold text-[#1A1A1A]">{t(lang, 'irrigationLog')}</h3>
-        <button className="w-full h-14 mt-4 border-2 border-dashed border-primary-500 bg-primary-50 rounded-xl flex items-center justify-center text-[15px] font-semibold text-primary-800 tap-feedback">
+        <button onClick={() => setShowLogModal(true)} className="w-full h-14 mt-4 border-2 border-dashed border-primary-500 bg-primary-50 rounded-xl flex items-center justify-center text-[15px] font-semibold text-primary-800 tap-feedback">
           {t(lang, 'logIrrigation')}
         </button>
         {irrigationLog.length > 0 && (
@@ -138,6 +165,67 @@ export default function SavingsPage() {
           {t(lang, 'waterFunFact').replace('{x}', Math.max(1, Math.floor(liters / 50)))}
         </p>
       </div>
+
+      {showLogModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          zIndex: 500, display: 'flex', alignItems: 'flex-end'
+        }} onClick={() => setShowLogModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#FFFFFF', borderRadius: '24px 24px 0 0',
+            padding: '28px 20px 40px', width: '100%',
+            boxShadow: '0 -8px 32px rgba(0,0,0,0.2)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <p style={{ fontSize: '20px', fontWeight: 700, color: '#0D1B0D', margin: 0 }}>💧 सिंचाई दर्ज करें</p>
+              <button onClick={() => setShowLogModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#757575' }}>×</button>
+            </div>
+
+            <label style={{ fontSize: '14px', fontWeight: 600, color: '#2D4A2D', display: 'block', marginBottom: '8px' }}>तारीख</label>
+            <input type="date" value={logEntry.date} onChange={e => setLogEntry(p => ({ ...p, date: e.target.value }))}
+              style={{ width: '100%', height: '48px', border: '2px solid #C8E6C9', borderRadius: '10px', padding: '0 14px', fontSize: '16px', marginBottom: '16px', boxSizing: 'border-box', outline: 'none' }} />
+
+            <label style={{ fontSize: '14px', fontWeight: 600, color: '#2D4A2D', display: 'block', marginBottom: '8px' }}>फसल</label>
+            <select value={logEntry.crop} onChange={e => setLogEntry(p => ({ ...p, crop: e.target.value }))}
+              style={{ width: '100%', height: '48px', border: '2px solid #C8E6C9', borderRadius: '10px', padding: '0 14px', fontSize: '16px', marginBottom: '16px', boxSizing: 'border-box', outline: 'none', background: '#fff' }}>
+              {['गेहूं','धान','मक्का','सब्जियां','आलू','टमाटर','दाल','अन्य'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <label style={{ fontSize: '14px', fontWeight: 600, color: '#2D4A2D', display: 'block', marginBottom: '8px' }}>सिंचाई का समय: {logEntry.durationHours} घंटे</label>
+            <input type="range" min="0.5" max="8" step="0.5" value={logEntry.durationHours}
+              onChange={e => setLogEntry(p => ({ ...p, durationHours: parseFloat(e.target.value) }))}
+              style={{ width: '100%', marginBottom: '16px', accentColor: '#2E7D32' }} />
+
+            <label style={{ fontSize: '14px', fontWeight: 600, color: '#2D4A2D', display: 'block', marginBottom: '12px' }}>AI की सलाह</label>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+              {[
+                { label: '💧 पानी देने की सलाह', val: false },
+                { label: '🌧️ बचाने की सलाह', val: true }
+              ].map(opt => (
+                <button key={String(opt.val)} onClick={() => setLogEntry(p => ({ ...p, aiSaidSkip: opt.val, didSkip: opt.val }))}
+                  style={{
+                    flex: 1, padding: '12px 8px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                    fontSize: '13px', fontWeight: 600,
+                    background: logEntry.aiSaidSkip === opt.val ? '#2E7D32' : '#F1F8E9',
+                    color: logEntry.aiSaidSkip === opt.val ? '#FFFFFF' : '#2E7D32',
+                    transition: 'all 200ms ease'
+                  }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <button onClick={saveIrrigationEntry} style={{
+              width: '100%', height: '56px', background: 'linear-gradient(135deg, #1B5E20, #2E7D32)',
+              color: '#FFFFFF', border: 'none', borderRadius: '14px',
+              fontSize: '17px', fontWeight: 700, cursor: 'pointer',
+              boxShadow: '0 6px 20px rgba(27,94,32,0.4)'
+            }}>
+              ✅ सेव करें
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
