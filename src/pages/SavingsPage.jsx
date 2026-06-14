@@ -1,7 +1,6 @@
 // src/pages/SavingsPage.jsx — Section 14 spec
 import { useEffect, useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { t } from '../i18n/index';
+import { useApp, useT } from '../context/AppContext';
 import { storage } from '../utils/storage';
 import { calculateTotalSavings, calculateWaterLitersSaved } from '../utils/savingsCalculator';
 import { trackEvent, EVENTS } from '../firebase/analytics';
@@ -34,6 +33,7 @@ function getSkipCount(log) {
 
 export default function SavingsPage() {
   const { user } = useApp();
+  const t = useT();
   const lang = user.language || 'hi';
   const [irrigationLog, setIrrigationLog] = useState(() => {
     try {
@@ -102,30 +102,30 @@ export default function SavingsPage() {
     <div className="bg-[#F1F8E9] min-h-screen pb-20 scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
       {/* Hero */}
       <div className="rounded-b-[32px] px-5 pt-6 pb-10" style={{ background: 'linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%)' }}>
-        <p className="text-base text-white/85">{t(lang, 'totalSavings')}</p>
+        <p className="text-base text-white/85">{t('totalSavings')}</p>
         <p className="text-[52px] font-extrabold text-white mt-1">₹{displayTotal.toLocaleString('en-IN')}</p>
-        <p className="text-sm text-white/70">{t(lang, 'toDate')}</p>
+        <p className="text-sm text-white/70">{t('toDate')}</p>
         <div className="flex justify-around mt-5 pt-5 border-t border-white/20">
           <div className="text-center">
             <p className="text-[22px] font-bold text-white">₹{month}</p>
-            <p className="text-xs text-white/70">{t(lang, 'thisMonth')}</p>
+            <p className="text-xs text-white/70">{t('thisMonth')}</p>
           </div>
           <div className="text-center">
             <p className="text-[22px] font-bold text-white">₹{week}</p>
-            <p className="text-xs text-white/70">{t(lang, 'thisWeek')}</p>
+            <p className="text-xs text-white/70">{t('thisWeek')}</p>
           </div>
           <div className="text-center">
             <p className="text-[22px] font-bold text-white">{count}</p>
-            <p className="text-xs text-white/70">{t(lang, 'timesSaved')}</p>
+            <p className="text-xs text-white/70">{t('timesSaved')}</p>
           </div>
         </div>
       </div>
 
       {/* Irrigation Log */}
       <div className="mx-4 -mt-4 bg-white rounded-2xl p-5 relative z-10" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
-        <h3 className="text-[17px] font-bold text-[#1A1A1A]">{t(lang, 'irrigationLog')}</h3>
+        <h3 className="text-[17px] font-bold text-[#1A1A1A]">{t('irrigationLog')}</h3>
         <button onClick={() => setShowLogModal(true)} className="w-full h-14 mt-4 border-2 border-dashed border-primary-500 bg-primary-50 rounded-xl flex items-center justify-center text-[15px] font-semibold text-primary-800 tap-feedback">
-          {t(lang, 'logIrrigation')}
+          {t('logIrrigation')}
         </button>
         {irrigationLog.length > 0 && (
           <div className="mt-4 space-y-0">
@@ -151,7 +151,7 @@ export default function SavingsPage() {
 
       {/* Goal Progress — SVG circular ring */}
       <div className="mx-4 mt-4 bg-white rounded-2xl shadow-card p-5">
-        <h3 className="text-[17px] font-bold text-[#1A1A1A]">{t(lang, 'monthGoal')}</h3>
+        <h3 className="text-[17px] font-bold text-[#1A1A1A]">{t('monthGoal')}</h3>
         <div className="flex flex-col items-center mt-4">
           <svg width="140" height="140" viewBox="0 0 140 140">
             <circle cx="70" cy="70" r="58" fill="none" stroke="#E0E0E0" strokeWidth="14" />
@@ -178,17 +178,17 @@ export default function SavingsPage() {
 
       {/* Water Savings */}
       <div className="mx-4 mt-4 mb-4 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, #E3F2FD, #BBDEFB)' }}>
-        <p className="text-[17px] font-bold text-sky-600">{t(lang, 'waterSaved')}</p>
-        <p className="text-[32px] font-extrabold text-sky-600 mt-1">{liters.toLocaleString('en-IN')} {t(lang, 'liters')}</p>
-        <p className="text-sm text-[#4A4A4A] mt-1">= {tankers} {t(lang, 'tankers')}</p>
+        <p className="text-[17px] font-bold text-sky-600">{t('waterSaved')}</p>
+        <p className="text-[32px] font-extrabold text-sky-600 mt-1">{liters.toLocaleString('en-IN')} {t('liters')}</p>
+        <p className="text-sm text-[#4A4A4A] mt-1">= {tankers} {t('tankers')}</p>
         <p className="text-sm text-[#4A4A4A] italic mt-2">
-          {t(lang, 'waterFunFact').replace('{x}', Math.max(1, Math.floor(liters / 50)))}
+          {t('waterFunFact').replace('{x}', Math.max(1, Math.floor(liters / 50)))}
         </p>
       </div>
 
       {showLogModal && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.55)',
           zIndex: 500, display: 'flex', alignItems: 'flex-end'
         }} onClick={() => setShowLogModal(false)}>
           <div onClick={e => e.stopPropagation()} style={{
@@ -205,7 +205,7 @@ export default function SavingsPage() {
             <input type="date" value={logEntry.date} onChange={e => setLogEntry(p => ({ ...p, date: e.target.value }))}
               style={{ width: '100%', height: '48px', border: '2px solid #C8E6C9', borderRadius: '10px', padding: '0 14px', fontSize: '16px', marginBottom: '16px', boxSizing: 'border-box', outline: 'none' }} />
 
-            <label style={{ fontSize: '14px', fontWeight: 600, color: '#2D4A2D', display: 'block', marginBottom: '8px' }}>फसल</label>
+            <label style={{ fontSize: '14px', fontWeight: 600, color: '#2D4A2D', display: 'block', marginBottom: '8px' }}>{t('crop')}</label>
             <select value={logEntry.crop} onChange={e => setLogEntry(p => ({ ...p, crop: e.target.value }))}
               style={{ width: '100%', height: '48px', border: '2px solid #C8E6C9', borderRadius: '10px', padding: '0 14px', fontSize: '16px', marginBottom: '16px', boxSizing: 'border-box', outline: 'none', background: '#fff' }}>
               {['गेहूं','धान','मक्का','सब्जियां','आलू','टमाटर','दाल','अन्य'].map(c => <option key={c} value={c}>{c}</option>)}

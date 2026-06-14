@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { storage } from '../utils/storage';
 import { trackEvent } from '../firebase/analytics';
+import { t } from '../i18n/translations';
 
 const AppContext = createContext(null);
 
@@ -14,8 +15,16 @@ const DEFAULT_USER = {
 
 export function AppProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = storage.get('user_profile', null);
-    return saved ? { ...DEFAULT_USER, ...saved } : DEFAULT_USER;
+    try {
+      return {
+        name: localStorage.getItem('user_name') || '',
+        crops: JSON.parse(localStorage.getItem('user_crops') || '[]'),
+        language: localStorage.getItem('user_language') || 'hi',
+        location: JSON.parse(localStorage.getItem('user_location') || 'null') || { lat: 28.6139, lng: 77.2090, city: 'Delhi', state: 'Delhi' }
+      };
+    } catch(e) {
+      return DEFAULT_USER;
+    }
   });
   const [activeTab, setActiveTab] = useState('home');
   const [alerts, setAlerts] = useState([]);
@@ -32,10 +41,7 @@ export function AppProvider({ children }) {
     });
   });
 
-  // Persist user profile
-  useEffect(() => {
-    storage.set('user_profile', user);
-  }, [user]);
+
 
   // Online/Offline detection
   useEffect(() => {
@@ -51,6 +57,11 @@ export function AppProvider({ children }) {
 
   const updateUser = useCallback((updates) => {
     setUser(prev => ({ ...prev, ...updates }));
+    // Persist each field
+    if (updates.name !== undefined) localStorage.setItem('user_name', updates.name);
+    if (updates.language !== undefined) localStorage.setItem('user_language', updates.language);
+    if (updates.crops !== undefined) localStorage.setItem('user_crops', JSON.stringify(updates.crops));
+    if (updates.location !== undefined) localStorage.setItem('user_location', JSON.stringify(updates.location));
   }, []);
 
   const completeOnboarding = useCallback((userData) => {
@@ -110,4 +121,10 @@ export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
+}
+
+export function useT() {
+  const { user } = useApp();
+  const lang = user?.language || 'hi';
+  return (key) => t(lang, key);
 }

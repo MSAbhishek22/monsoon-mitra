@@ -1,7 +1,6 @@
 // src/pages/SettingsPage.jsx — Section 15 spec
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
-import { t, getLanguageName, LANGUAGE_OPTIONS } from '../i18n/index';
+import { useApp, useT } from '../context/AppContext';
 import { SettingsRow } from '../components/SettingsPanel';
 import { getCropName } from '../utils/cropData';
 import { trackEvent, EVENTS } from '../firebase/analytics';
@@ -35,6 +34,7 @@ function Toggle({ value, onChange }) {
 
 export default function SettingsPage({ onNavigate }) {
   const { user, updateUser, notificationSettings, updateNotificationSettings, clearAllData, onboardingComplete } = useApp();
+  const t = useT();
   const lang = user.language || 'hi';
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
@@ -43,6 +43,10 @@ export default function SettingsPage({ onNavigate }) {
   const [selectedCrops, setSelectedCrops] = useState(() => storage.get('user_crops') || ['गेहूं']);
   const [cityInput, setCityInput] = useState('');
   const { requestLocation } = useGeoLocation();
+
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [nameInput, setNameInput] = useState(localStorage.getItem('user_name') || '');
+  const [nameToast, setNameToast] = useState(false);
 
   const LANGUAGES = [
     { code: 'hi', name: 'हिन्दी', subname: 'Hindi' },
@@ -96,6 +100,12 @@ export default function SettingsPage({ onNavigate }) {
 
   return (
     <div className="bg-[#F1F8E9] min-h-screen scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
+      {nameToast && (
+        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', width: 'max-content', maxWidth: '400px', background: '#1B5E20', color: '#FFF', padding: '12px 24px', borderRadius: '24px', fontSize: '14px', fontWeight: 600, zIndex: 1000, whiteSpace: 'nowrap', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+          ✅ नाम सेव हो गया!
+        </div>
+      )}
+
       {/* Profile Card */}
       <div className="rounded-[20px] mx-4 mt-4 p-6" style={{ background: 'linear-gradient(135deg, #2E7D32, #388E3C)' }}>
         <div className="flex items-center gap-4">
@@ -103,30 +113,67 @@ export default function SettingsPage({ onNavigate }) {
             <span className="text-[28px] font-bold text-white">{user.name ? user.name.charAt(0).toUpperCase() : '🌾'}</span>
           </div>
           <div>
-            <p className="text-xl font-bold text-white">{user.name || t(lang, 'dearFarmer')}</p>
+            <p className="text-xl font-bold text-white">{user.name || t('dearFarmer')}</p>
             <p className="text-sm text-white/80">📍 {user.location?.city || 'Delhi'}{user.location?.state ? `, ${user.location.state}` : ''}</p>
-            <p className="text-xs text-white/65">{t(lang, 'memberSince')} {joinMonth}</p>
+            <p className="text-xs text-white/65">{t('memberSince')} {joinMonth}</p>
           </div>
         </div>
       </div>
 
       {/* My Info */}
       <div className="mx-4 mt-4 bg-white rounded-2xl shadow-card overflow-hidden">
-        <h3 className="text-base font-bold text-[#1A1A1A] px-4 pt-4 pb-2">{t(lang, 'myInfo')}</h3>
-        <SettingsRow icon="👤" label={t(lang, 'name')} value={user.name || t(lang, 'setIt')} chevron />
-        <SettingsRow icon="🌾" label={t(lang, 'crop')} value={user.crops?.map(c => getCropName(c, lang)).join(', ') || t(lang, 'setIt')} chevron onClick={() => setShowCropPicker(true)} />
-        <SettingsRow icon="📍" label={t(lang, 'location')} value={user.location?.city || 'Delhi'} chevron onClick={() => setShowLocationPicker(true)} />
-        <SettingsRow icon="🗣️" label={t(lang, 'language')} value={getLanguageName(lang)} chevron onClick={() => setShowLangPicker(true)} />
+        <h3 className="text-base font-bold text-[#1A1A1A] px-4 pt-4 pb-2">{t('myInfo')}</h3>
+        <SettingsRow icon="👤" label={t('name')} value={user.name || t('setIt')} chevron onClick={() => setShowNameModal(true)} />
+        <SettingsRow icon="🌾" label={t('crop')} value={user.crops?.map(c => getCropName(c, lang)).join(', ') || t('setIt')} chevron onClick={() => setShowCropPicker(true)} />
+        <SettingsRow icon="📍" label={t('location')} value={user.location?.city || 'Delhi'} chevron onClick={() => setShowLocationPicker(true)} />
+        <SettingsRow icon="🗣️" label={t('language')} value={LANGUAGES.find(l => l.code === lang)?.name || 'हिन्दी'} chevron onClick={() => setShowLangPicker(true)} />
       </div>
+
+      {showNameModal && (
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.6)', zIndex: 900, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowNameModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '24px 24px 0 0', padding: '28px 20px 40px', width: '100%', boxShadow: '0 -8px 32px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0D1B0D', marginBottom: '6px' }}>👤 अपना नाम बताएं</h3>
+            <p style={{ fontSize: '14px', color: '#5A7A5A', marginBottom: '20px' }}>यह नाम होम स्क्रीन पर दिखेगा</p>
+            <input
+              autoFocus
+              type="text"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              placeholder="जैसे: रामजी लाल"
+              style={{ width: '100%', height: '52px', border: '2px solid #C8E6C9', borderRadius: '12px', padding: '0 16px', fontSize: '16px', fontFamily: 'inherit', outline: 'none', marginBottom: '16px', boxSizing: 'border-box' }}
+              onFocus={e => e.target.style.borderColor = '#2E7D32'}
+              onBlur={e => e.target.style.borderColor = '#C8E6C9'}
+            />
+            <button onClick={() => {
+              const trimmed = nameInput.trim();
+              localStorage.setItem('user_name', trimmed);
+              // Update context
+              if (typeof updateUser === 'function') updateUser({ name: trimmed });
+              setShowNameModal(false);
+              setNameToast(true);
+              setTimeout(() => setNameToast(false), 2500);
+            }} style={{ width: '100%', height: '52px', background: 'linear-gradient(135deg, #1B5E20, #2E7D32)', color: '#FFF', border: 'none', borderRadius: '12px', fontSize: '17px', fontWeight: 700, cursor: 'pointer', marginBottom: '10px' }}>
+              ✅ सेव करें
+            </button>
+            <button onClick={() => setShowNameModal(false)} style={{ width: '100%', height: '44px', background: 'none', border: 'none', color: '#9E9E9E', fontSize: '15px', cursor: 'pointer' }}>
+              रद्द करें
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Language Picker */}
       {showLangPicker && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'flex-end' }}
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'flex-end' }}
           onClick={() => setShowLangPicker(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '24px 24px 0 0', padding: '28px 20px 40px', width: '100%' }}>
             <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '20px' }}>🗣️ भाषा चुनें</p>
             {LANGUAGES.map(langOpt => (
-              <button key={langOpt.code} onClick={() => { updateUser({ language: langOpt.code }); storage.set('user_language', langOpt.code); setShowLangPicker(false); window.location.reload(); }}
+              <button key={langOpt.code} onClick={() => { 
+                  localStorage.setItem('user_language', langOpt.code);
+                  updateUser({ language: langOpt.code }); 
+                  setShowLangPicker(false); 
+                }}
                 style={{
                   width: '100%', height: '60px', display: 'flex', alignItems: 'center', justifyItems: 'space-between',
                   padding: '0 16px', borderRadius: '12px', border: 'none', cursor: 'pointer', marginBottom: '8px',
@@ -146,7 +193,7 @@ export default function SettingsPage({ onNavigate }) {
 
       {/* Crop Picker */}
       {showCropPicker && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'flex-end' }}
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.55)', zIndex: 500, display: 'flex', alignItems: 'flex-end' }}
           onClick={() => setShowCropPicker(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '24px 24px 0 0', padding: '28px 20px 40px', width: '100%' }}>
             <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>🌾 फसल चुनें</p>
@@ -182,7 +229,7 @@ export default function SettingsPage({ onNavigate }) {
       {/* Location Picker */}
       {showLocationPicker && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'flex-end'
         }} onClick={() => setShowLocationPicker(false)}>
           <div onClick={e => e.stopPropagation()} style={{
@@ -254,9 +301,7 @@ export default function SettingsPage({ onNavigate }) {
 
       {/* Notifications */}
       <div className="mx-4 mt-4" style={{ background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '16px', overflow: 'hidden' }}>
-        <p style={{ fontSize: '13px', fontWeight: 600, color: '#757575', padding: '12px 16px 8px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          सूचनाएं
-        </p>
+        <p style={{ fontSize: '13px', fontWeight: 600, color: '#757575', padding: '12px 16px 8px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('notifications')}</p>
         {[
           { key: 'flood', icon: '🌊', label: 'बाढ़ की चेतावनी' },
           { key: 'drought', icon: '🌡️', label: 'सूखे की चेतावनी' },
@@ -278,13 +323,13 @@ export default function SettingsPage({ onNavigate }) {
 
       {/* App Info */}
       <div className="mx-4 mt-4 bg-white rounded-2xl shadow-card overflow-hidden">
-        <h3 className="text-base font-bold text-[#1A1A1A] px-4 pt-4 pb-2">{t(lang, 'appInfo')}</h3>
-        <SettingsRow icon="📱" label={t(lang, 'version')} value="1.0.0" />
-        <SettingsRow icon="🔒" label={t(lang, 'privacyPolicy')} chevron onClick={() => onNavigate('privacy')} />
-        <SettingsRow icon="📋" label={t(lang, 'termsOfService')} chevron onClick={() => onNavigate('terms')} />
-        <SettingsRow icon="⭐" label={t(lang, 'rateApp')} chevron onClick={() => window.open('https://play.google.com/store/apps', '_blank')} />
-        <SettingsRow icon="📤" label={t(lang, 'shareApp')} chevron onClick={handleShare} />
-        <SettingsRow icon="🐛" label={t(lang, 'reportBug')} chevron onClick={() => window.open('mailto:msabhishekanni10@gmail.com?subject=Bug Report - Monsoon Mitra')} />
+        <h3 className="text-base font-bold text-[#1A1A1A] px-4 pt-4 pb-2">{t('appInfo')}</h3>
+        <SettingsRow icon="📱" label={t('version')} value="1.0.0" />
+        <SettingsRow icon="🔒" label={t('privacyPolicy')} chevron onClick={() => onNavigate('privacy')} />
+        <SettingsRow icon="📋" label={t('termsOfService')} chevron onClick={() => onNavigate('terms')} />
+        <SettingsRow icon="⭐" label={t('rateApp')} chevron onClick={() => window.open('https://play.google.com/store/apps', '_blank')} />
+        <SettingsRow icon="📤" label={t('shareApp')} chevron onClick={handleShare} />
+        <SettingsRow icon="🐛" label={t('reportBug')} chevron onClick={() => window.open('mailto:msabhishekanni10@gmail.com?subject=Bug Report - Monsoon Mitra')} />
       </div>
 
       {/* Danger Zone */}

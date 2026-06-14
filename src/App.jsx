@@ -97,9 +97,9 @@ function AppShell() {
 
   return (
     <div style={{
-      maxWidth: '480px',
+      maxWidth: '430px',
       margin: '0 auto',
-      minHeight: '100vh',
+      minHeight: '100dvh',
       background: '#F0F7F0',
       display: 'flex',
       flexDirection: 'column',
@@ -110,7 +110,7 @@ function AppShell() {
       {updateAvailable && (
         <div style={{
           position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: '480px',
+          width: '100%', maxWidth: '430px',
           background: 'linear-gradient(135deg, #1B5E20, #2E7D32)',
           padding: '12px 16px', zIndex: 600,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center'
@@ -167,7 +167,7 @@ function AppShell() {
         <div style={{
           position: 'fixed', bottom: 'calc(72px + env(safe-area-inset-bottom) + 12px)',
           left: '50%', transform: 'translateX(-50%)',
-          width: 'calc(100% - 32px)', maxWidth: '448px',
+          width: 'calc(100% - 32px)', maxWidth: '430px',
           background: '#FFFFFF', border: '2px solid #2E7D32',
           borderRadius: '16px', padding: '16px',
           boxShadow: '0 8px 24px rgba(27,94,32,0.2)',

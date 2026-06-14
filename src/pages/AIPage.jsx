@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, useT } from '../context/AppContext';
 import { useVoice } from '../hooks/useVoice';
 import { storage } from '../utils/storage';
 import { trackEvent, EVENTS } from '../firebase/analytics';
@@ -37,16 +37,11 @@ const CHIPS = {
   ],
 };
 
-const PLACEHOLDERS = {
-  hi: 'खेती का कोई भी सवाल पूछें...',
-  en: 'Ask any farming question...',
-  bn: 'যেকোনো প্রশ্ন করুন...',
-  mr: 'कोणताही प्रश्न विचारा...',
-  pa: 'ਕੋਈ ਵੀ ਸਵਾਲ ਪੁੱਛੋ...',
-};
+
 
 export default function AIPage() {
   const { user } = useApp();
+  const t = useT();
   const lang = user?.language || 'hi';
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -205,7 +200,7 @@ export default function AIPage() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px' }}>
             <span style={{ fontSize: '56px', marginBottom: '16px' }}>🤖</span>
             <p style={{ fontSize: '20px', fontWeight: 700, color: '#1B5E20', marginBottom: '8px', textAlign: 'center' }}>
-              {lang === 'hi' ? 'नमस्ते! मैं AI सहायक हूं' : lang === 'en' ? 'Hello! I am AI Sahayak' : 'नमस्ते! मैं AI सहायक हूं'}
+              {lang === 'hi' ? t('aiWelcome') : lang === 'en' ? 'Hello! I am AI Sahayak' : t('aiWelcome')}
             </p>
             <p style={{ fontSize: '15px', color: '#5A7A5A', marginBottom: '24px', textAlign: 'center', lineHeight: 1.6 }}>
               {lang === 'hi' ? 'खेती के बारे में कुछ भी पूछें' : 'Ask me anything about farming'}
@@ -251,7 +246,7 @@ export default function AIPage() {
                         background: '#E8F5E9', color: '#1B5E20', border: 'none',
                         borderRadius: '8px', padding: '6px 12px', fontSize: '12px',
                         fontWeight: 600, cursor: 'pointer'
-                      }}>🔊 सुनें</button>
+                      }}>{t('listen')}</button>
                       <button onClick={() => {
                         const saved = storage.get('saved_messages') || [];
                         storage.set('saved_messages', [...saved, msg]);
@@ -259,7 +254,7 @@ export default function AIPage() {
                         background: '#FFF8E1', color: '#F57F17', border: 'none',
                         borderRadius: '8px', padding: '6px 12px', fontSize: '12px',
                         fontWeight: 600, cursor: 'pointer'
-                      }}>⭐ सेव</button>
+                      }}>{t('save')}</button>
                     </div>
                   )}
                 </div>
@@ -305,7 +300,7 @@ export default function AIPage() {
           onChange={e => setInputText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
           onInput={e => { e.target.style.height = '48px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
-          placeholder={PLACEHOLDERS[lang] || PLACEHOLDERS.hi}
+          placeholder={t('chatPlaceholder')}
           rows={1}
           style={{
             flex: 1, minHeight: '48px', maxHeight: '120px',

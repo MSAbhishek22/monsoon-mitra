@@ -46,8 +46,10 @@ export default function AlertBanner({ alert, onDismiss, onDetails }) {
       style={{
         position: 'fixed',
         top: 0,
-        left: 0,
-        right: 0,
+        left: '50%',
+        transform: visible ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+        width: '100%',
+        maxWidth: '430px',
         zIndex: 200,
         background: c.bg,
         display: 'flex',
@@ -55,7 +57,6 @@ export default function AlertBanner({ alert, onDismiss, onDetails }) {
         gap: '10px',
         padding: '10px 16px',
         boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-        transform: visible ? 'translateY(0)' : 'translateY(-100%)',
         transition: 'transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1)',
       }}
     >

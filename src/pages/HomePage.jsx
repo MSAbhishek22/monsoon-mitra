@@ -1,9 +1,9 @@
 // src/pages/HomePage.jsx — Section 8 complete spec
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, useT } from '../context/AppContext';
 import { useWeather, getWeatherEmoji } from '../hooks/useWeather';
 import { useNotifications } from '../hooks/useNotifications';
-import { t } from '../i18n/index';
+
 import { getWeatherCondition } from '../api/weather';
 import FarmerHook from '../components/FarmerHook';
 import SavingsTracker from '../components/SavingsTracker';
@@ -13,6 +13,7 @@ import { getIrrigationDecision } from '../utils/irrigationLogic';
 
 export default function HomePage() {
   const { user, setActiveTab } = useApp();
+  const t = useT();
   const { weatherData, loading, error } = useWeather();
   const { permission, requestPermission } = useNotifications();
   const [showSchemesModal, setShowSchemesModal] = useState(false);
@@ -36,7 +37,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#F1F8E9] pb-20 px-4 pt-4 scroll-container" style={{ paddingBottom: 'max(80px, calc(64px + env(safe-area-inset-bottom)))' }}>
       {/* Top Header */}
       <div className="flex items-center justify-between h-14">
-        <span className="text-lg font-bold text-primary-900">🌾 Monsoon Mitra</span>
+        <span className="text-lg font-bold text-primary-900">🌾 {userName ? `${userName} ${t('fieldOf')}` : t('myField')}</span>
         <div className="flex items-center gap-2">
           <button 
             onClick={async () => {
@@ -70,7 +71,7 @@ export default function HomePage() {
           {greeting}{userName ? `, ${userName} जी` : '!'} {greetingEmoji}
         </p>
         <p className="text-[15px] text-white/90 mt-1.5">
-          {irrigationDecision ? (irrigationDecision.decision === 'skip' ? 'आज पानी मत दें' : 'आज पानी दें') : ''}
+          {irrigationDecision ? (irrigationDecision.decision === 'skip' ? t('skipToday') : t('irrigateToday')) : ''}
         </p>
         <div className="flex items-center justify-between mt-4">
           <div>
@@ -89,19 +90,19 @@ export default function HomePage() {
       {/* Today's Forecast Strip */}
       <div className="mt-4">
         {loading ? <ForecastStripSkeleton /> : (
-          <ForecastStrip hourlyData={weatherData?.raw?.hourly} label={t(lang, 'todayForecast')} />
+          <ForecastStrip hourlyData={weatherData?.raw?.hourly} label={t('todayForecast')} />
         )}
       </div>
 
       {/* Quick Actions */}
       <div className="mt-5">
-        <h3 className="text-base font-bold text-[#1A1A1A] mb-3">{t(lang, 'quickHelp')}</h3>
+        <h3 className="text-base font-bold text-[#1A1A1A] mb-3">{t('quickHelp')}</h3>
         <div className="grid grid-cols-2 gap-3">
           {[
             { icon: '🤖', emoji: true, title: 'AI से पूछें', sub: 'कोई भी सवाल पूछें', tab: 'ai', color: '#E8F5E9' },
-            { icon: '📊', emoji: true, title: '7 दिन मौसम', sub: 'पूरे हफ्ते का हाल', tab: 'weather', color: '#E1F5FE' },
-            { icon: '💰', emoji: true, title: 'बचत देखें', sub: 'आपकी कुल बचत', tab: 'savings', color: '#FFF8E1' },
-            { icon: '⚙️', emoji: true, title: 'सेटिंग', sub: 'भाषा व फसल बदलें', tab: 'settings', color: '#F3E5F5' },
+            { icon: '📊', emoji: true, title: t('sevenDayWeather'), sub: 'पूरे हफ्ते का हाल', tab: 'weather', color: '#E1F5FE' },
+            { icon: '💰', emoji: true, title: t('viewSavings'), sub: t('totalSavings'), tab: 'savings', color: '#FFF8E1' },
+            { icon: '⚙️', emoji: true, title: t('settings'), sub: 'भाषा व फसल बदलें', tab: 'settings', color: '#F3E5F5' },
           ].map(action => (
             <button
               key={action.tab}
@@ -136,11 +137,11 @@ export default function HomePage() {
         </div>
         <div style={{ display: 'flex', overflowX: 'auto', gap: '12px', padding: '0 16px 8px' }} className="hide-scrollbar">
           {[
-            { icon: '📋', title: 'सरकारी योजनाएं', desc: 'PM-KISAN, PMFBY और 10+ योजनाएं', color: '#E8F5E9', border: '#A5D6A7', textColor: '#1B5E20', action: () => setShowSchemesModal(true) },
-            { icon: '📚', title: 'फसल गाइड', desc: 'गेहूं, धान, सब्जी का पूरा ज्ञान', color: '#FFF3E0', border: '#FFCC80', textColor: '#E65100', action: () => setShowCropGuideModal(true) },
-            { icon: '🐛', title: 'कीट और बीमारी', desc: 'पहचानें और इलाज करें', color: '#FCE4EC', border: '#F48FB1', textColor: '#C62828', action: () => setShowPestModal(true) },
-            { icon: '📞', title: 'किसान हेल्पलाइन', desc: 'मुफ्त, हिंदी में सलाह', color: '#E3F2FD', border: '#90CAF9', textColor: '#0277BD', action: () => window.open('tel:18001801551') },
-            { icon: '🌱', title: 'खेती कैलेंडर', desc: 'क्या बोएं, कब बोएं', color: '#F3E5F5', border: '#CE93D8', textColor: '#6A1B9A', action: () => setShowCalendarModal(true) },
+            { icon: '📋', title: t('govtSchemes'), desc: 'PM-KISAN, PMFBY और 10+ योजनाएं', color: '#E8F5E9', border: '#A5D6A7', textColor: '#1B5E20', action: () => setShowSchemesModal(true) },
+            { icon: '📚', title: t('cropGuide'), desc: 'गेहूं, धान, सब्जी का पूरा ज्ञान', color: '#FFF3E0', border: '#FFCC80', textColor: '#E65100', action: () => setShowCropGuideModal(true) },
+            { icon: '🐛', title: t('pestGuide'), desc: 'पहचानें और इलाज करें', color: '#FCE4EC', border: '#F48FB1', textColor: '#C62828', action: () => setShowPestModal(true) },
+            { icon: '📞', title: t('helpline'), desc: 'मुफ्त, हिंदी में सलाह', color: '#E3F2FD', border: '#90CAF9', textColor: '#0277BD', action: () => window.open('tel:18001801551') },
+            { icon: '🌱', title: t('farmCalendar'), desc: 'क्या बोएं, कब बोएं', color: '#F3E5F5', border: '#CE93D8', textColor: '#6A1B9A', action: () => setShowCalendarModal(true) },
           ].map(tool => (
             <button key={tool.title} onClick={tool.action} style={{
               minWidth: '155px', height: '106px', background: tool.color,
@@ -169,7 +170,7 @@ export default function HomePage() {
       </div>
 
       {showSchemesModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowSchemesModal(false)}>
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowSchemesModal(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '24px 24px 0 0', padding: '24px 20px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }} className="hide-scrollbar">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0D1B0D', margin: 0 }}>📋 सरकारी योजनाएं</h2>
@@ -202,7 +203,7 @@ export default function HomePage() {
       )}
 
       {showCropGuideModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowCropGuideModal(false)}>
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowCropGuideModal(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#FFF', borderRadius: '24px 24px 0 0', padding: '24px 20px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }} className="hide-scrollbar">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0D1B0D', margin: 0 }}>📚 फसल गाइड</h2>
@@ -229,7 +230,7 @@ export default function HomePage() {
       )}
 
       {showPestModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowPestModal(false)}>
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowPestModal(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#FFF', borderRadius: '24px 24px 0 0', padding: '24px 20px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }} className="hide-scrollbar">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0D1B0D', margin: 0 }}>🐛 कीट और बीमारी</h2>
@@ -258,7 +259,7 @@ export default function HomePage() {
       )}
 
       {showCalendarModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowCalendarModal(false)}>
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px', background: 'rgba(0,0,0,0.6)', zIndex: 800, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowCalendarModal(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#FFF', borderRadius: '24px 24px 0 0', padding: '24px 20px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }} className="hide-scrollbar">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0D1B0D', margin: 0 }}>🌱 खेती कैलेंडर</h2>

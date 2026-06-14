@@ -75,9 +75,19 @@ const ALLOWED_ORIGINS = [
 
 // ─── Main handler ────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error('GEMINI_API_KEY missing from environment');
-    return res.status(500).json({ error: 'Configuration error', fallback: true });
+  // Diagnostic check
+  const keyExists = !!process.env.GEMINI_API_KEY;
+  const keyLength = process.env.GEMINI_API_KEY?.length || 0;
+  const keyPreview = process.env.GEMINI_API_KEY?.substring(0, 8) || 'NOT SET';
+  
+  console.log(`API Key check: exists=${keyExists}, length=${keyLength}, preview=${keyPreview}...`);
+  
+  if (!keyExists) {
+    return res.status(500).json({ 
+      error: 'GEMINI_API_KEY not configured in Vercel environment variables',
+      fallback: true,
+      debug: 'Go to Vercel Dashboard → Project → Settings → Environment Variables → Add GEMINI_API_KEY'
+    });
   }
 
   // Determine origin and set CORS
@@ -173,12 +183,22 @@ export default async function handler(req, res) {
   };
 
   try {
+    console.log('Sending to Gemini:', {
+      language: cleanLanguage,
+      crop: cleanCrop,
+      messageLength: cleanMessage.length,
+      historyLength: cleanHistory.length,
+      model: 'gemini-1.5-flash'
+    });
+
     const geminiRes = await fetch(geminiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(geminiPayload),
       signal: AbortSignal.timeout(20000), // 20s timeout
     });
+
+    console.log('Gemini response status:', geminiRes.status);
 
     const geminiData = await geminiRes.json();
 
@@ -188,6 +208,7 @@ export default async function handler(req, res) {
     }
 
     const replyText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log('Reply length:', replyText?.length);
     if (!replyText) {
       console.warn('[chat.js] Empty Gemini response:', JSON.stringify(geminiData));
       return res.status(500).json({ error: 'Empty AI response', fallback: true });
@@ -206,30 +227,46 @@ export default async function handler(req, res) {
 
 // ─── System prompt builder ───────────────────────────────────────────────────
 function buildSystemPrompt(language, crop, weatherContext) {
-  const langNames = {
-    hi: 'Hindi (Devanagari script only — every word)',
+  const langMap = {
+    hi: 'Hindi using Devanagari script',
     en: 'English',
-    bn: 'Bengali (Bangla script)',
-    mr: 'Marathi (Devanagari script)',
-    pa: 'Punjabi (Gurmukhi script)'
+    bn: 'Bengali using Bangla script',
+    mr: 'Marathi using Devanagari script',
+    pa: 'Punjabi using Gurmukhi script'
   };
+  const lang = langMap[language] || langMap.hi;
 
-  return `You are "Kisan Sahayak" — a friendly, expert farming assistant for Indian farmers growing ${crop}.
+  return `You are "Kisan Sahayak" — an expert agricultural advisor for Indian farmers with 30 years of field experience in Indian farming conditions.
 
-CRITICAL: Respond ONLY in ${langNames[language] || 'Hindi'}. Every single word must be in that language.
+MANDATORY LANGUAGE: Respond in ${lang} ONLY. Not a single English word unless it's a technical term (like DAP, NPK, KVK). Test: every sentence must be in ${lang}.
 
-FARMER'S CURRENT CONDITIONS: ${weatherContext || 'Not available'}
+FARMER PROFILE: Growing ${Array.isArray(crop) ? crop.join(' and ') : (crop || 'various crops')} in India.
 
-RULES:
-1. Responses under 150 words unless detail is truly needed
-2. Always give ONE actionable thing the farmer can do TODAY
-3. Use bullet points (•) for lists — no markdown
-4. Maximum 2 emojis per response
-5. End with one encouraging sentence
-6. For pesticide brands: say "अपने कृषि केंद्र से पूछें"
-7. For government scheme amounts: direct to pmkisan.gov.in or CSC center
+CURRENT FIELD CONDITIONS: ${weatherContext || 'Weather not available — advise based on typical monsoon season conditions'}
 
-EXPERTISE: irrigation timing, weather for farming, crop diseases, fertilizer, government schemes (PM-KISAN, PMFBY, KCC, soil health card), emergency response (flood/drought/hailstorm), post-harvest storage, seasonal farming calendar.
+RESPONSE QUALITY REQUIREMENTS:
+- Give SPECIFIC answers with NUMBERS and QUANTITIES when asked
+  - "How much water?" → give liters per acre, frequency in days, time of day
+  - "Which fertilizer?" → give specific names (DAP, Urea, MOP), quantities in kg/acre
+  - "When to plant?" → give specific month range, temperature requirements
+  - "Disease treatment?" → name the disease, describe symptoms, give organic OR chemical approach
+- Keep response under 120 words
+- Use bullet points (•) for multi-step answers
+- Give ONE clear recommendation at the end: "आज करें:" (Do today:)
 
-Answer the farmer's question warmly and practically right now.`;
+MANDATORY TOPIC COVERAGE — answer accurately on:
+1. IRRIGATION: timing (morning 6-9am or evening 5-7pm best), frequency varies by crop (wheat 10-12 days, rice 5-7 days, vegetables daily in summer), amount (drip: 30-40% less water, flood: 4-6 inches)
+2. FERTILIZERS: DAP (diammonium phosphate) at planting for phosphorus+nitrogen, Urea for nitrogen top-dressing, MOP (potash) for root strength, timing based on growth stage
+3. PESTS: identify by leaf symptoms (yellowing=nutrient, brown spots=fungus, holes=insects), organic options (neem oil 5ml/liter, soap water), refer to KVK for chemicals
+4. GOVERNMENT SCHEMES: PM-KISAN (₹6000/year, 3 installments, pmkisan.gov.in), PMFBY crop insurance (enroll within 10 days of sowing), KCC (4% interest up to ₹3 lakh), Soil Health Card (free at KVK)
+5. MARKET: suggest checking local mandi prices, eNAM portal for national prices, APMC nearby
+6. SEASONAL CALENDAR: Kharif (June-Nov: rice, maize, soybean), Rabi (Oct-Mar: wheat, mustard, gram), Zaid (Mar-Jun: cucumber, watermelon, moong)
+7. EMERGENCY RESPONSE: flood (drain fields immediately, apply fungicide after water recedes), drought (mulching reduces evaporation 40%, drip irrigation, drought-resistant varieties)
+
+FORBIDDEN:
+- Never give a vague answer like "consult an expert" without first giving your best specific advice
+- Never say "I don't know" — always give the most relevant information you have
+- Never recommend specific brand-name pesticides — say "contact your nearest KVK"
+- Never give human medical advice
+- Never discuss politics`;
 }

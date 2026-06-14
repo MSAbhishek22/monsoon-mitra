@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWeather, getWeatherEmoji } from '../hooks/useWeather';
-import { useApp } from '../context/AppContext';
+import { useApp, useT } from '../context/AppContext';
 import { getIrrigationDecision } from '../utils/irrigationLogic';
 import { trackEvent, EVENTS } from '../firebase/analytics';
 
@@ -12,6 +12,7 @@ function Skeleton({ width = '100%', height = '20px', radius = '8px', style = {} 
 
 export default function WeatherPage() {
   const { user, setActiveTab } = useApp();
+  const t = useT();
   const { weatherData, loading, error, lastUpdated, refetch } = useWeather();
   const [barsVisible, setBarsVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +97,7 @@ export default function WeatherPage() {
             }}
           >
             <span style={{ display: 'inline-block', animation: refreshing ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
-            {refreshing ? 'लोड हो रहा है...' : 'ताज़ा करें'}
+            {refreshing ? t('refreshing') : t('refresh')}
           </button>
         </div>
 
@@ -147,9 +148,9 @@ export default function WeatherPage() {
           borderTop: '1px solid rgba(255,255,255,0.2)'
         }}>
           {[
-            { icon: '💧', label: 'नमी', value: loading ? '--' : `${weatherData?.current?.humidity ?? '--'}%` },
-            { icon: '💨', label: 'हवा', value: loading ? '--' : `${weatherData?.current?.windSpeed ?? '--'} km/h` },
-            { icon: '🌡️', label: 'दबाव', value: loading ? '--' : `${weatherData?.current?.pressure ?? '--'} hPa` },
+            { icon: '💧', label: t('humidity'), value: loading ? '--' : `${weatherData?.current?.humidity ?? '--'}%` },
+            { icon: '💨', label: t('wind'), value: loading ? '--' : `${weatherData?.current?.windSpeed ?? '--'} km/h` },
+            { icon: '🌡️', label: t('pressure'), value: loading ? '--' : `${weatherData?.current?.pressure ?? '--'} hPa` },
           ].map(stat => (
             <div key={stat.label} style={{ textAlign: 'center' }}>
               <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)', margin: '0 0 4px' }}>{stat.icon} {stat.label}</p>
@@ -175,7 +176,7 @@ export default function WeatherPage() {
                 <span style={{ fontSize: '28px' }}>{irrigationDecision.icon}</span>
                 <div>
                   <p style={{ fontSize: '17px', fontWeight: 800, color: irrigationDecision.color, margin: 0 }}>
-                    {irrigationDecision.decision === 'skip' ? 'पानी मत दें' : 'आज पानी दें'}
+                    {irrigationDecision.decision === 'skip' ? 'पानी मत दें' : t('irrigateToday')}
                   </p>
                   <p style={{ fontSize: '13px', color: '#5A7A5A', margin: '2px 0 0' }}>
                     {irrigationDecision.reason}
@@ -198,18 +199,14 @@ export default function WeatherPage() {
               color: '#FFFFFF', border: 'none', borderRadius: '10px',
               fontSize: '14px', fontWeight: 700, cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(27,94,32,0.3)'
-            }}>
-              💰 इस निर्णय को लॉग करें और बचत देखें →
-            </button>
+            }}>{t('logAndSee')}</button>
           </div>
         )}
       </div>
 
       {/* 7-DAY FORECAST */}
       <div style={{ padding: '24px 16px 0' }}>
-        <p style={{ fontSize: '17px', fontWeight: 800, color: '#0D1B0D', marginBottom: '12px' }}>
-          📅 7 दिन का पूर्वानुमान
-        </p>
+        <p style={{ fontSize: '17px', fontWeight: 800, color: '#0D1B0D', marginBottom: '12px' }}>{t('sevenDayForecast')}</p>
         {loading ? (
           Array(7).fill(0).map((_, i) => (
             <Skeleton key={i} height="60px" radius="12px" style={{ marginBottom: '8px' }} />
@@ -217,7 +214,7 @@ export default function WeatherPage() {
         ) : (
           (weatherData?.daily?.dates || []).map((date, idx) => {
             const d = new Date(date + 'T00:00:00');
-            const dayName = idx === 0 ? 'आज' : idx === 1 ? 'कल' : DAY_NAMES_HI[d.getDay()];
+            const dayName = idx === 0 ? t('today') : idx === 1 ? t('tomorrow') : DAY_NAMES_HI[d.getDay()];
             const rain = weatherData.daily.rainProbabilities[idx] ?? 0;
             const max = weatherData.daily.maxTemps[idx] ?? '--';
             const min = weatherData.daily.minTemps[idx] ?? '--';
@@ -263,9 +260,7 @@ export default function WeatherPage() {
 
       {/* RAIN PROBABILITY CHART */}
       <div style={{ padding: '20px 16px' }}>
-        <p style={{ fontSize: '17px', fontWeight: 800, color: '#0D1B0D', marginBottom: '16px' }}>
-          🌧️ बारिश की संभावना (7 दिन)
-        </p>
+        <p style={{ fontSize: '17px', fontWeight: 800, color: '#0D1B0D', marginBottom: '16px' }}>{t('rainChart')}</p>
         <div style={{
           background: '#FFFFFF', borderRadius: '16px', padding: '20px 12px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #E8F5E9'
@@ -281,7 +276,7 @@ export default function WeatherPage() {
               : (weatherData?.daily?.rainProbabilities || Array(7).fill(0)).map((prob, idx) => {
                   const date = weatherData?.daily?.dates?.[idx];
                   const d = date ? new Date(date + 'T00:00:00') : null;
-                  const dayLabel = idx === 0 ? 'आज' : idx === 1 ? 'कल' : d ? DAY_NAMES_HI[d.getDay()] : `D${idx + 1}`;
+                  const dayLabel = idx === 0 ? t('today') : idx === 1 ? t('tomorrow') : d ? DAY_NAMES_HI[d.getDay()] : `D${idx + 1}`;
                   const barH = Math.max((prob / 100) * 110, 4);
                   const color = prob <= 20 ? '#81C784' : prob <= 50 ? '#FFB300' : prob <= 75 ? '#FB8C00' : '#E53935';
                   return (
@@ -304,9 +299,7 @@ export default function WeatherPage() {
 
       {/* HOURLY FORECAST */}
       <div style={{ padding: '0 16px 20px' }}>
-        <p style={{ fontSize: '17px', fontWeight: 800, color: '#0D1B0D', marginBottom: '12px' }}>
-          🕐 आज का घंटेवार मौसम
-        </p>
+        <p style={{ fontSize: '17px', fontWeight: 800, color: '#0D1B0D', marginBottom: '12px' }}>{t('hourlyForecast')}</p>
         <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', paddingBottom: '8px' }} className="hide-scrollbar">
           {loading
             ? Array(8).fill(0).map((_, i) => (
@@ -333,7 +326,7 @@ export default function WeatherPage() {
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between'
                     }}>
                       <span style={{ fontSize: '11px', color: isNow ? '#1B5E20' : '#9E9E9E', fontWeight: isNow ? 700 : 400 }}>
-                        {isNow ? 'अभी' : timeStr}
+                        {isNow ? t('now') : timeStr}
                       </span>
                       <span style={{ fontSize: '24px' }}>{getWeatherEmoji(code ?? 0)}</span>
                       <span style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B0D' }}>{temp ?? '--'}°</span>

@@ -1,21 +1,23 @@
-import { useApp } from '../../context/AppContext';
+import { useApp, useT } from '../../context/AppContext';
 
 export default function BottomNav() {
   const { activeTab, setActiveTab } = useApp();
 
+  const t = useT();
+
   const tabs = [
-    { id: 'home', icon: '🏠', label: 'होम' },
-    { id: 'weather', icon: '🌦️', label: 'मौसम' },
-    { id: 'ai', icon: '🎤', label: 'AI', center: true },
-    { id: 'savings', icon: '💰', label: 'बचत' },
-    { id: 'settings', icon: '⚙️', label: 'सेटिंग' },
+    { id: 'home', icon: '🏠', label: t('home') },
+    { id: 'weather', icon: '🌦️', label: t('weather') },
+    { id: 'ai', icon: '🎤', label: t('aiChat'), center: true },
+    { id: 'savings', icon: '💰', label: t('savings') },
+    { id: 'settings', icon: '⚙️', label: t('settings') },
   ];
 
   return (
     <nav style={{
       position: 'fixed', bottom: 0,
       left: '50%', transform: 'translateX(-50%)',
-      width: '100%', maxWidth: '480px',
+      width: '100%', maxWidth: '430px',
       background: '#FFFFFF',
       borderTop: '2px solid #E8F5E9',
       boxShadow: '0 -4px 20px rgba(0,0,0,0.10)',
@@ -59,7 +61,7 @@ export default function BottomNav() {
                 color: isActive ? '#1B5E20' : '#9E9E9E',
                 marginTop: '4px', lineHeight: 1
               }}>
-                {isActive ? 'AI चैट' : tab.label}
+                {isActive ? t('aiChat') : tab.label}
               </span>
             </button>
           );

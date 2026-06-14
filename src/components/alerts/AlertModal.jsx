@@ -71,8 +71,7 @@ export default function AlertModal({ alert, weatherData, onClose }) {
     <div
       onClick={handleClose}
       style={{
-        position: 'fixed',
-        inset: 0,
+        position: 'fixed', top: 0, bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '430px',
         zIndex: 300,
         background: visible ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
         backdropFilter: visible ? 'blur(4px)' : 'none',
