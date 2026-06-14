@@ -1,97 +1,79 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-const LANG_CODES = {
-  hi: 'hi-IN', en: 'en-IN', bn: 'bn-BD', mr: 'mr-IN', pa: 'pa-IN'
-};
+const LANG_CODES = { hi: 'hi-IN', en: 'en-IN', bn: 'bn-BD', mr: 'mr-IN', pa: 'pa-IN' };
 
 export function useVoice(language = 'hi', onResult) {
   const [isListening, setIsListening] = useState(false);
-  const [isSupported] = useState(() =>
-    typeof window !== 'undefined' &&
-    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
-  );
   const [error, setError] = useState(null);
   const recognitionRef = useRef(null);
   const onResultRef = useRef(onResult);
-  const mountedRef = useRef(true);
+  const activeRef = useRef(false);
 
-  // Keep onResult ref current without re-creating recognition
   useEffect(() => { onResultRef.current = onResult; }, [onResult]);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+
+  const isSupported = typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
 
   const stopListening = useCallback(() => {
-    try {
-      recognitionRef.current?.stop();
-    } catch (_) {}
-    if (mountedRef.current) setIsListening(false);
+    activeRef.current = false;
+    try { recognitionRef.current?.abort(); } catch (_) {}
+    setIsListening(false);
   }, []);
 
   const startListening = useCallback(() => {
     if (!isSupported) {
-      setError('Voice not supported in this browser. Use Chrome on Android.');
+      setError('Chrome ब्राउज़र में माइक काम करता है। Chrome इस्तेमाल करें।');
       return;
     }
-    if (isListening) { stopListening(); return; }
-
+    if (activeRef.current) { stopListening(); return; }
     setError(null);
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = LANG_CODES[language] || 'hi-IN';
-    recognition.continuous = false;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    recognition.continuous = false;
 
-    recognition.onstart = () => {
-      if (mountedRef.current) setIsListening(true);
-    };
+    recognition.onstart = () => { activeRef.current = true; setIsListening(true); };
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (transcript && onResultRef.current) {
-        onResultRef.current(transcript);
-      }
-      if (mountedRef.current) setIsListening(false);
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+      activeRef.current = false;
+      setIsListening(false);
+      if (transcript) setTimeout(() => onResultRef.current?.(transcript), 50);
     };
 
     recognition.onerror = (event) => {
-      const errorMessages = {
-        'not-allowed': 'माइक की अनुमति दें। ब्राउज़र सेटिंग में Microphone allow करें।',
-        'no-speech': 'आवाज़ नहीं मिली। फिर कोशिश करें।',
-        'network': 'नेटवर्क समस्या। इंटरनेट जांचें।',
-        'aborted': null,
+      activeRef.current = false;
+      setIsListening(false);
+      const msgs = {
+        'not-allowed': '🎤 माइक की अनुमति दें — ब्राउज़र में Allow करें',
+        'no-speech': '🔇 आवाज़ नहीं सुनी — फिर कोशिश करें',
+        'network': '📶 नेटवर्क समस्या',
+        'audio-capture': '🎤 माइक नहीं मिला',
       };
-      const msg = errorMessages[event.error];
-      if (msg && mountedRef.current) setError(msg);
-      if (mountedRef.current) setIsListening(false);
+      if (msgs[event.error]) setError(msgs[event.error]);
     };
 
-    recognition.onend = () => {
-      if (mountedRef.current) setIsListening(false);
-    };
+    recognition.onend = () => { activeRef.current = false; setIsListening(false); };
 
     recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch (e) {
+    try { recognition.start(); } catch (e) {
+      activeRef.current = false;
       setIsListening(false);
       setError('माइक शुरू नहीं हुआ। पेज रिफ्रेश करें।');
     }
-  }, [isSupported, isListening, language, stopListening]);
+  }, [isSupported, language, stopListening]);
 
-  const speak = useCallback((text, lang = language) => {
+  const speak = useCallback((text) => {
     if (!('speechSynthesis' in window) || !text) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = LANG_CODES[lang] || 'hi-IN';
-    u.rate = 0.88;
-    u.pitch = 1.0;
-    u.volume = 1.0;
+    u.lang = LANG_CODES[language] || 'hi-IN';
+    u.rate = 0.85; u.pitch = 1; u.volume = 1;
     window.speechSynthesis.speak(u);
   }, [language]);
 
-  const cancelSpeak = useCallback(() => {
-    window.speechSynthesis?.cancel();
-  }, []);
-
-  return { isListening, isSupported, error, startListening, stopListening, speak, cancelSpeak };
+  return { isListening, isSupported, error, startListening, stopListening, speak };
 }

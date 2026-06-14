@@ -11,71 +11,82 @@ export function useWeather() {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const fetchWeather = useCallback(async (forceRefresh = false) => {
-    const loc = storage.get('user_location');
+    const locRaw = localStorage.getItem('user_location');
+    const loc = locRaw ? JSON.parse(locRaw) : null;
     const lat = loc?.lat ?? 28.6139;
     const lng = loc?.lng ?? 77.2090;
 
-    // Check cache
     if (!forceRefresh) {
-      const cached = storage.get('weather_cache');
-      const cacheTime = storage.get('weather_cache_time');
-      if (cached && cacheTime && Date.now() - cacheTime < CACHE_TTL) {
-        setWeatherData(cached);
-        setLastUpdated(cacheTime);
-        setLoading(false);
-        return;
-      }
+      try {
+        const cachedRaw = localStorage.getItem('weather_cache');
+        const cacheTimeRaw = localStorage.getItem('weather_cache_time');
+        if (cachedRaw && cacheTimeRaw) {
+          const age = Date.now() - parseInt(cacheTimeRaw, 10);
+          if (age < 7200000) {
+            const cached = JSON.parse(cachedRaw);
+            if (cached?.current?.temperature != null) {
+              setWeatherData(cached);
+              setLastUpdated(parseInt(cacheTimeRaw, 10));
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (_) {}
     }
 
     setLoading(true);
     setError(null);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     try {
-      const url = [
-        'https://api.open-meteo.com/v1/forecast',
-        `?latitude=${lat}&longitude=${lng}`,
-        '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,precipitation,apparent_temperature,surface_pressure',
-        '&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m',
-        '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,weather_code,sunrise,sunset',
-        '&timezone=Asia%2FKolkata',
-        '&forecast_days=7',
-        '&wind_speed_unit=kmh',
-      ].join('');
-
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (!res.ok) throw new Error(`Weather API: ${res.status}`);
-      const raw = await res.json();
-      const processed = processWeatherData(raw, lat, lng);
-
-      setWeatherData(processed);
-      setLastUpdated(Date.now());
-      storage.set('weather_cache', processed);
-      storage.set('weather_cache_time', Date.now());
-
-      trackEvent(EVENTS.WEATHER_LOADED, {
-        city: loc?.city || 'unknown',
-        rain_alert: processed.rainProbabilityNext24h > 80,
-        temp: processed.current.temperature,
+      const params = new URLSearchParams({
+        latitude: lat.toFixed(4),
+        longitude: lng.toFixed(4),
+        current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,precipitation,apparent_temperature',
+        hourly: 'temperature_2m,precipitation_probability,weather_code',
+        daily: 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,weather_code',
+        timezone: 'Asia/Kolkata',
+        forecast_days: '7',
+        wind_speed_unit: 'kmh',
       });
 
+      const response = await fetch(
+        `https://api.open-meteo.com/v1/forecast?${params}`,
+        { signal: AbortSignal.timeout(12000) }
+      );
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const raw = await response.json();
+      if (!raw.current) throw new Error('No data');
+
+      const processed = processWeatherData(raw, lat, lng, loc);
+      setWeatherData(processed);
+      setLastUpdated(Date.now());
+      setError(null);
+      localStorage.setItem('weather_cache', JSON.stringify(processed));
+      localStorage.setItem('weather_cache_time', Date.now().toString());
     } catch (err) {
-      clearTimeout(timeoutId);
-      // Always fall back to cache, even stale
-      const stale = storage.get('weather_cache');
-      if (stale) {
-        setWeatherData(stale);
-        setError('cached'); // Signal that data is stale but usable
-      } else {
-        // Last resort: dummy data so UI doesn't break
-        setWeatherData(getDummyWeather());
-        setError('offline');
-      }
-      trackEvent(EVENTS.WEATHER_LOAD_FAILED, { reason: err.message });
+      try {
+        const staleRaw = localStorage.getItem('weather_cache');
+        if (staleRaw) {
+          const stale = JSON.parse(staleRaw);
+          if (stale?.current?.temperature != null) {
+            setWeatherData(stale);
+            setError('stale');
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (_) {}
+      setWeatherData({
+        current: { temperature: 32, feelsLike: 34, humidity: 65, windSpeed: 12, weatherCode: 1, description: 'आंशिक बादल', emoji: '⛅', precipitation: 0 },
+        rainProbabilityNext24h: 20, expectedRainfallMm: 0, temperatureCelsius: 32,
+        humidityPercent: 65, windSpeedKmh: 12, isFloodRisk: false, isDroughtRisk: false,
+        daily: { dates: [], maxTemps: [], minTemps: [], rainProbabilities: [], rainfallMm: [], weatherCodes: [] },
+        hourly: { times: [], temperatures: [], rainProbabilities: [], weatherCodes: [] },
+        location: { lat, lng, city: loc?.city || 'आपका क्षेत्र', state: loc?.state || '' },
+      });
+      setError('offline');
     } finally {
       setLoading(false);
     }
@@ -99,17 +110,16 @@ export function useWeather() {
   };
 }
 
-function processWeatherData(raw, lat, lng) {
-  const c = raw.current ?? {};
-  const d = raw.daily ?? {};
-  const h = raw.hourly ?? {};
+function processWeatherData(raw, lat, lng, loc) {
+  const c = raw.current || {};
+  const d = raw.daily || {};
+  const h = raw.hourly || {};
 
   const temp = c.temperature_2m ?? c.temperature ?? 30;
   const humidity = c.relative_humidity_2m ?? c.relativehumidity_2m ?? 60;
-  const wind = c.wind_speed_10m ?? c.windspeed_10m ?? c.wind_speed ?? 0;
+  const wind = c.wind_speed_10m ?? c.windspeed_10m ?? 0;
   const code = c.weather_code ?? c.weathercode ?? 0;
-  const rainProb = d.precipitation_probability_max?.[0] ?? 0;
-  const rainfall = d.precipitation_sum?.[0] ?? 0;
+  const rainProb = (d.precipitation_probability_max ?? [])[0] ?? 0;
 
   return {
     current: {
@@ -117,14 +127,13 @@ function processWeatherData(raw, lat, lng) {
       feelsLike: Math.round(c.apparent_temperature ?? temp - 2),
       humidity: Math.round(humidity),
       windSpeed: Math.round(wind),
-      pressure: Math.round(c.surface_pressure ?? 1013),
       weatherCode: code,
       description: getWeatherDescription(code),
       emoji: getWeatherEmoji(code),
       precipitation: c.precipitation ?? 0,
     },
     rainProbabilityNext24h: rainProb,
-    expectedRainfallMm: rainfall,
+    expectedRainfallMm: (d.precipitation_sum ?? [])[0] ?? 0,
     temperatureCelsius: temp,
     humidityPercent: humidity,
     windSpeedKmh: wind,
@@ -132,27 +141,19 @@ function processWeatherData(raw, lat, lng) {
     isDroughtRisk: temp > 40 && rainProb < 10,
     daily: {
       dates: d.time ?? [],
-      maxTemps: (d.temperature_2m_max ?? []).map(v => Math.round(v)),
-      minTemps: (d.temperature_2m_min ?? []).map(v => Math.round(v)),
+      maxTemps: (d.temperature_2m_max ?? []).map(v => Math.round(v ?? 0)),
+      minTemps: (d.temperature_2m_min ?? []).map(v => Math.round(v ?? 0)),
       rainProbabilities: d.precipitation_probability_max ?? [],
       rainfallMm: d.precipitation_sum ?? [],
       weatherCodes: d.weather_code ?? d.weathercode ?? [],
-      sunrises: d.sunrise ?? [],
-      sunsets: d.sunset ?? [],
     },
     hourly: {
       times: (h.time ?? []).slice(0, 24),
-      temperatures: (h.temperature_2m ?? []).slice(0, 24).map(v => Math.round(v)),
+      temperatures: (h.temperature_2m ?? []).slice(0, 24).map(v => Math.round(v ?? 0)),
       rainProbabilities: (h.precipitation_probability ?? []).slice(0, 24),
       weatherCodes: (h.weather_code ?? h.weathercode ?? []).slice(0, 24),
-      windSpeeds: (h.wind_speed_10m ?? h.windspeed_10m ?? []).slice(0, 24),
     },
-    location: {
-      lat,
-      lng,
-      city: storage.get('user_location')?.city || 'आपका क्षेत्र',
-      state: storage.get('user_location')?.state || '',
-    }
+    location: { lat, lng, city: loc?.city || 'आपका क्षेत्र', state: loc?.state || '' },
   };
 }
 

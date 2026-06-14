@@ -60,7 +60,7 @@ const hi = {
   viewSavingsSub: 'आपकी कमाई',
   settingsLabel: 'सेटिंग',
   settingsSub: 'भाषा व फसल बदलें',
-  yourSavings: '💰 आपकी बचत',
+  yourSavings: 'आपकी बचत',
   thisMonthSavings: 'इस महीने की कुल बचत',
   viewFullDetails: 'पूरी जानकारी देखें →',
 
@@ -96,10 +96,10 @@ const hi = {
   logIrrigation: '+ आज की सिंचाई दर्ज करें',
   hours: 'घंटे',
   monthGoal: 'इस महीने का लक्ष्य',
-  waterSaved: '💧 पानी की बचत',
+  waterSaved: 'पानी की बचत',
   liters: 'लीटर',
   tankers: 'टंकियां',
-  waterFunFact: 'इतने पानी में {x} लोग एक दिन जी सकते हैं 🌍',
+  waterFunFact: '{x} लोग एक दिन जी सकते हैं',
 
   // Settings
   myInfo: 'मेरी जानकारी',

@@ -6,7 +6,6 @@ import BottomNav from './components/common/BottomNav';
 import AlertBanner from './components/alerts/AlertBanner';
 import { storage } from './utils/storage';
 import { measureCoreWebVitals } from './utils/performance';
-import { seedDemoData } from './utils/demoSeed';
 
 // Lazy load pages for faster initial load
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -27,12 +26,13 @@ function AppShell() {
 
   const onboardingDone = !!storage.get('onboarding_complete');
 
-  // Demo seed
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('demo') === 'true') {
-      storage.remove('demo_seeded');
-      import('./utils/demoSeed').then(({ seedDemoData }) => seedDemoData());
+      import('./utils/demoSeed').then(({ seedDemoData }) => {
+        localStorage.removeItem('demo_seeded');
+        seedDemoData();
+      });
     }
   }, []);
 

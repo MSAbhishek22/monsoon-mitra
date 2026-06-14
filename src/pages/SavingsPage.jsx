@@ -35,7 +35,27 @@ function getSkipCount(log) {
 export default function SavingsPage() {
   const { user } = useApp();
   const lang = user.language || 'hi';
-  const irrigationLog = storage.get('irrigation_log') || [];
+  const [irrigationLog, setIrrigationLog] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('irrigation_log') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const reload = () => {
+      try {
+        setIrrigationLog(JSON.parse(localStorage.getItem('irrigation_log') || '[]'));
+      } catch (_) {
+        // ignore malformed storage data
+      }
+    };
+
+    window.addEventListener('storage', reload);
+    return () => window.removeEventListener('storage', reload);
+  }, []);
+
   const total = calculateTotalSavings(irrigationLog);
   const month = calcMonthSavings(irrigationLog);
   const week = calcWeekSavings(irrigationLog);
