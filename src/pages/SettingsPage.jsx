@@ -33,7 +33,7 @@ function Toggle({ value, onChange }) {
   );
 }
 
-export default function SettingsPage() {
+export default function SettingsPage({ onNavigate }) {
   const { user, updateUser, notificationSettings, updateNotificationSettings, clearAllData, onboardingComplete } = useApp();
   const lang = user.language || 'hi';
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -280,8 +280,8 @@ export default function SettingsPage() {
       <div className="mx-4 mt-4 bg-white rounded-2xl shadow-card overflow-hidden">
         <h3 className="text-base font-bold text-[#1A1A1A] px-4 pt-4 pb-2">{t(lang, 'appInfo')}</h3>
         <SettingsRow icon="📱" label={t(lang, 'version')} value="1.0.0" />
-        <SettingsRow icon="🔒" label={t(lang, 'privacyPolicy')} chevron onClick={() => window.location.href = '/privacy'} />
-        <SettingsRow icon="📋" label={t(lang, 'termsOfService')} chevron onClick={() => window.location.href = '/terms'} />
+        <SettingsRow icon="🔒" label={t(lang, 'privacyPolicy')} chevron onClick={() => onNavigate('privacy')} />
+        <SettingsRow icon="📋" label={t(lang, 'termsOfService')} chevron onClick={() => onNavigate('terms')} />
         <SettingsRow icon="⭐" label={t(lang, 'rateApp')} chevron onClick={() => window.open('https://play.google.com/store/apps', '_blank')} />
         <SettingsRow icon="📤" label={t(lang, 'shareApp')} chevron onClick={handleShare} />
         <SettingsRow icon="🐛" label={t(lang, 'reportBug')} chevron onClick={() => window.open('mailto:msabhishekanni10@gmail.com?subject=Bug Report - Monsoon Mitra')} />

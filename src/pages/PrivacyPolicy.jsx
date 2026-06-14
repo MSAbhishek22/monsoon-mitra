@@ -33,32 +33,34 @@ function InfoRow({ icon, label, children }) {
   );
 }
 
-export default function PrivacyPolicy() {
+export default function PrivacyPolicy({ onBack }) {
   const { setActiveTab } = useApp();
 
   return (
-    <div style={{ background: '#FFFFFF', minHeight: '100vh', paddingBottom: 40 }}>
-      {/* Sticky header */}
+    <div style={{ padding: '0 0 40px', background: '#FFFFFF', minHeight: '100vh' }}>
+      {/* Header */}
       <div style={{
-        position: 'sticky', top: 0, zIndex: 10,
-        background: '#FFFFFF', borderBottom: '1px solid #E0E0E0',
-        padding: 16, display: 'flex', alignItems: 'center', gap: 12,
+        position: 'sticky', top: 0, background: '#FFFFFF',
+        borderBottom: '2px solid #E8F5E9', padding: '16px 20px',
+        display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10
       }}>
         <button
-          onClick={() => setActiveTab('settings')}
+          onClick={onBack}
           style={{
             width: '44px', height: '44px', borderRadius: '22px',
-            background: '#F1F8E9', border: '2px solid #C8E6C9',
+            background: '#E8F5E9', border: '2px solid #C8E6C9',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', fontSize: '18px', color: '#2E7D32'
+            cursor: 'pointer', fontSize: '20px', color: '#1B5E20',
+            flexShrink: 0
           }}
-          id="privacy-back-btn"
         >
           ←
         </button>
         <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1A1A1A', margin: 0 }}>गोपनीयता नीति</h1>
-          <p style={{ fontSize: 12, color: '#757575', margin: 0 }}>Privacy Policy</p>
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#0D1B0D', margin: 0 }}>
+            गोपनीयता नीति
+          </h1>
+          <p style={{ fontSize: '12px', color: '#5A7A5A', margin: 0 }}>Privacy Policy</p>
         </div>
       </div>
 

@@ -1,223 +1,100 @@
-// src/App.jsx
-import React, { useState } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useApp } from './context/AppContext';
-import { useNotifications } from './hooks/useNotifications';
-import { useWeather } from './hooks/useWeather';
-import { trackEvent, EVENTS } from './firebase/analytics';
-import { storage } from './utils/storage';
-import { useVoice } from './hooks/useVoice';
-import { useLocation as useGeoLocation } from './hooks/useLocation';
-
-// Components
+import { useState, useEffect, Suspense, lazy } from 'react';
+import { AppProvider, useApp } from './context/AppContext';
 import SplashScreen from './components/common/SplashScreen';
-import BottomNav from './components/common/BottomNav';
 import OnboardingWrapper from './components/onboarding/OnboardingWrapper';
+import BottomNav from './components/common/BottomNav';
 import AlertBanner from './components/alerts/AlertBanner';
-import AlertModal from './components/alerts/AlertModal';
+import { storage } from './utils/storage';
+import { measureCoreWebVitals } from './utils/performance';
 import { seedDemoData } from './utils/demoSeed';
 
-// Pages
-import HomePage from './pages/HomePage';
-import WeatherPage from './pages/WeatherPage';
-import AIPage from './pages/AIPage';
-import SavingsPage from './pages/SavingsPage';
-import SettingsPage from './pages/SettingsPage';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-
-function MainAppFlow() {
-  const { activeTab, alerts, dismissAlert, user, setActiveTab } = useApp();
-  const [selectedAlert, setSelectedAlert] = useState(null);
-  
-  const [voiceQuery, setVoiceQuery] = useState('');
-  const [showVoiceResult, setShowVoiceResult] = useState(false);
-
-  const { isListening, startListening, stopListening } = useVoice(user?.language || 'hi', (transcript) => {
-    setVoiceQuery(transcript);
-    setActiveTab('ai');
-    storage.set('pending_voice_query', transcript);
-  });
-  
-  // Render active tab content
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'home': return <HomePage />;
-      case 'weather': return <WeatherPage />;
-      case 'ai': return <AIPage />;
-      case 'savings': return <SavingsPage />;
-      case 'settings': return <SettingsPage />;
-      default: return <HomePage />;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#F1F8E9]">
-      {/* Alert Banners */}
-      {alerts.map((alert) => (
-        <AlertBanner
-          key={alert.type}
-          alert={alert}
-          onDismiss={() => dismissAlert(alert.type)}
-          onDetails={() => setSelectedAlert(alert)}
-        />
-      ))}
-
-      {/* Main Content Area */}
-      <div key={activeTab} className="page-enter" style={{ flex: 1, overflow: 'hidden auto' }}>
-        {renderTab()}
-      </div>
-
-      {/* Voice FAB */}
-      {activeTab !== 'ai' && (
-        <button
-          onClick={isListening ? stopListening : startListening}
-          style={{
-            position: 'fixed',
-            bottom: 'calc(64px + env(safe-area-inset-bottom) + 12px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '64px', height: '64px',
-            borderRadius: '32px',
-            background: isListening
-              ? 'linear-gradient(135deg, #C62828, #E53935)'
-              : 'linear-gradient(135deg, #1B5E20, #2E7D32)',
-            border: 'none',
-            boxShadow: isListening
-              ? '0 8px 24px rgba(198,40,40,0.5), 0 0 0 8px rgba(198,40,40,0.15)'
-              : '0 8px 24px rgba(27,94,32,0.5)',
-            cursor: 'pointer', zIndex: 90,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '28px',
-            animation: isListening ? 'pulse 1s infinite' : 'none',
-            transition: 'all 300ms cubic-bezier(0.34,1.56,0.64,1)'
-          }}
-          aria-label="Voice query"
-        >
-          {isListening ? '⏹️' : '🎤'}
-        </button>
-      )}
-
-      {/* Bottom Navigation */}
-      <BottomNav />
-
-      {/* Alert Detail Modal */}
-      {selectedAlert && (
-        <AlertModal
-          alert={selectedAlert}
-          onClose={() => setSelectedAlert(null)}
-        />
-      )}
-    </div>
-  );
-}
+// Lazy load pages for faster initial load
+const HomePage = lazy(() => import('./pages/HomePage'));
+const WeatherPage = lazy(() => import('./pages/WeatherPage'));
+const AIPage = lazy(() => import('./pages/AIPage'));
+const SavingsPage = lazy(() => import('./pages/SavingsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
 function AppShell() {
-  const { onboardingComplete, completeOnboarding, addAlert, notificationSettings } = useApp();
-  const { alertLevel } = useWeather();
-  const { scheduleWeatherAlert } = useNotifications();
+  const { activeTab, setActiveTab, user } = useApp();
+  const [currentPage, setCurrentPage] = useState('app'); // 'app' | 'privacy' | 'terms'
   const [showSplash, setShowSplash] = useState(true);
-  const location = useLocation();
-  const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
-  const { location: geoLoc, requestLocation } = useGeoLocation();
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
-  React.useEffect(() => {
-    // Location check
-    const savedLocation = storage.get('user_profile')?.location || storage.get('user_location');
-    if (!savedLocation || (savedLocation.city === 'Delhi' && !storage.get('location_asked'))) {
-      storage.set('location_asked', 'true');
-      requestLocation();
-    }
+  const onboardingDone = !!storage.get('onboarding_complete');
 
-    // Demo seed
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('demo') === 'true') {
+  // Demo seed
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === 'true') {
       storage.remove('demo_seeded');
-      import('./utils/demoSeed').then(({ seedDemoData }) => {
-        seedDemoData();
-        window.dispatchEvent(new Event('storage'));
-      });
+      import('./utils/demoSeed').then(({ seedDemoData }) => seedDemoData());
     }
-
-    // SW update listener
-    const swHandler = () => setShowUpdateBanner(true);
-    window.addEventListener('sw_update_available', swHandler);
-
-    // Install prompt listener
-    const installHandler = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-      const hasUsedAI = localStorage.getItem('ai_message_count');
-      if (hasUsedAI && parseInt(hasUsedAI) >= 2) {
-        setShowInstallBanner(true);
-      }
-      trackEvent('pwa_install_prompted');
-    };
-    window.addEventListener('beforeinstallprompt', installHandler);
-    window.addEventListener('appinstalled', () => {
-      trackEvent('pwa_installed');
-      setShowInstallBanner(false);
-    });
-
-    return () => {
-      window.removeEventListener('sw_update_available', swHandler);
-      window.removeEventListener('beforeinstallprompt', installHandler);
-    };
   }, []);
 
-  const handleInstall = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') trackEvent('pwa_installed');
-    setInstallPrompt(null);
-    setShowInstallBanner(false);
+  // PWA install prompt
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => setShowInstallBanner(false));
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  // Service worker update detection
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const w = reg.installing;
+          w?.addEventListener('statechange', () => {
+            if (w.state === 'installed' && navigator.serviceWorker.controller) {
+              setUpdateAvailable(true);
+            }
+          });
+        });
+      });
+    }
+  }, []);
+
+  // Handle browser back button for /privacy and /terms
+  useEffect(() => {
+    const handlePopState = () => setCurrentPage('app');
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Performance monitoring
+  useEffect(() => { measureCoreWebVitals(); }, []);
+
+  const navigateTo = (page) => {
+    if (page === 'privacy' || page === 'terms') {
+      window.history.pushState({ page }, '', `/${page}`);
+      setCurrentPage(page);
+    } else {
+      setCurrentPage('app');
+    }
   };
 
-  // Check for alerts when weather updates
-  React.useEffect(() => {
-    if (!alertLevel) return;
-    
-    const alert = {
-      type: alertLevel,
-      title: alertLevel === 'flood' ? '⚠️ बाढ़ की चेतावनी!' : '🌡️ सूखे की चेतावनी',
-      severity: 'high'
-    };
-    
-    // Only show if setting is enabled
-    if (notificationSettings[alertLevel]) {
-      addAlert(alert);
-      trackEvent(EVENTS.ALERT_VIEWED, { alert_type: alertLevel });
-      // Schedule native notification
-      scheduleWeatherAlert({
-        isFloodRisk: alertLevel === 'flood',
-        isDroughtRisk: alertLevel === 'drought'
-      });
-    }
-  }, [alertLevel, addAlert, notificationSettings, scheduleWeatherAlert]);
-
-  // Track app open
-  React.useEffect(() => {
-    trackEvent(EVENTS.APP_OPENED);
-  }, []);
+  const goBack = () => {
+    setCurrentPage('app');
+    setActiveTab('settings');
+    window.history.pushState({}, '', '/');
+  };
 
   if (showSplash) {
     return <SplashScreen onComplete={() => setShowSplash(false)} />;
   }
 
-  // Handle standalone routes first
-  if (location.pathname === '/privacy') return <PrivacyPolicy />;
-  if (location.pathname === '/terms') return <TermsOfService />;
-
-  // Require onboarding for main app
-  if (!onboardingComplete) {
-    trackEvent(EVENTS.ONBOARDING_STARTED);
-    return <OnboardingWrapper onComplete={completeOnboarding} />;
+  if (!onboardingDone) {
+    return <OnboardingWrapper />;
   }
 
-  // Main app with tabs
+  const isLegalPage = currentPage === 'privacy' || currentPage === 'terms';
+
   return (
     <div style={{
       maxWidth: '480px',
@@ -227,54 +104,101 @@ function AppShell() {
       display: 'flex',
       flexDirection: 'column',
       position: 'relative',
-      overflow: 'hidden'
+      overflow: 'hidden',
     }}>
-      {showUpdateBanner && (
+      {/* Update banner */}
+      {updateAvailable && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 500,
-          background: '#2E7D32', color: '#fff',
-          padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: '480px',
+          background: 'linear-gradient(135deg, #1B5E20, #2E7D32)',
+          padding: '12px 16px', zIndex: 600,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
         }}>
-          <span style={{ fontSize: '14px' }}>🌾 नया अपडेट उपलब्ध है!</span>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              background: '#fff', color: '#2E7D32', border: 'none',
-              borderRadius: '8px', padding: '6px 14px', fontSize: '13px', fontWeight: 600, cursor: 'pointer'
-            }}
-          >
+          <span style={{ fontSize: '14px', color: '#FFFFFF', fontWeight: 600 }}>
+            🌾 नया अपडेट उपलब्ध है!
+          </span>
+          <button onClick={() => window.location.reload()} style={{
+            background: '#FFFFFF', color: '#1B5E20', border: 'none',
+            borderRadius: '8px', padding: '6px 14px', fontSize: '13px',
+            fontWeight: 700, cursor: 'pointer'
+          }}>
             अपडेट करें
           </button>
         </div>
       )}
-      <MainAppFlow />
-      {showInstallBanner && (
+
+      {/* Alert banner */}
+      <AlertBanner />
+
+      {/* Page content */}
+      <div
+        key={isLegalPage ? currentPage : activeTab}
+        style={{
+          flex: 1, overflowY: 'auto', overflowX: 'hidden',
+          paddingBottom: isLegalPage ? '24px' : 'calc(72px + env(safe-area-inset-bottom))',
+          animation: 'pageFadeIn 280ms ease forwards',
+          WebkitOverflowScrolling: 'touch',
+        }}
+        className="hide-scrollbar"
+      >
+        <Suspense fallback={<PageSkeleton />}>
+          {isLegalPage ? (
+            currentPage === 'privacy'
+              ? <PrivacyPolicy onBack={goBack} />
+              : <TermsOfService onBack={goBack} />
+          ) : (
+            <>
+              {activeTab === 'home' && <HomePage />}
+              {activeTab === 'weather' && <WeatherPage />}
+              {activeTab === 'ai' && <AIPage />}
+              {activeTab === 'savings' && <SavingsPage />}
+              {activeTab === 'settings' && <SettingsPage onNavigate={navigateTo} />}
+            </>
+          )}
+        </Suspense>
+      </div>
+
+      {/* Bottom nav — hidden on legal pages */}
+      {!isLegalPage && <BottomNav />}
+
+      {/* PWA install banner */}
+      {showInstallBanner && installPrompt && (
         <div style={{
-          position: 'fixed', bottom: '72px', left: '16px', right: '16px', zIndex: 50,
+          position: 'fixed', bottom: 'calc(72px + env(safe-area-inset-bottom) + 12px)',
+          left: '50%', transform: 'translateX(-50%)',
+          width: 'calc(100% - 32px)', maxWidth: '448px',
           background: '#FFFFFF', border: '2px solid #2E7D32',
           borderRadius: '16px', padding: '16px',
-          boxShadow: '0 4px 20px rgba(46,125,50,0.2)',
-          display: 'flex', alignItems: 'center', gap: '12px'
+          boxShadow: '0 8px 24px rgba(27,94,32,0.2)',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          zIndex: 50, animation: 'slideUpFade 300ms ease'
         }}>
           <span style={{ fontSize: '32px' }}>📲</span>
-          <div style={{ flex: 1, paddingRight: '20px' }}>
-            <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#0D1B0D', margin: 0 }}>
               ऐप इंस्टॉल करें
             </p>
-            <p style={{ fontSize: '13px', color: '#757575', margin: '2px 0 0' }}>
+            <p style={{ fontSize: '13px', color: '#5A7A5A', margin: '2px 0 0' }}>
               बिना इंटरनेट भी काम करेगा
             </p>
           </div>
-          <button onClick={handleInstall} style={{
-            background: '#2E7D32', color: '#fff', border: 'none',
-            borderRadius: '10px', padding: '10px 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer'
+          <button onClick={async () => {
+            installPrompt.prompt();
+            const { outcome } = await installPrompt.userChoice;
+            setInstallPrompt(null);
+            setShowInstallBanner(false);
+          }} style={{
+            background: 'linear-gradient(135deg, #1B5E20, #2E7D32)',
+            color: '#FFFFFF', border: 'none', borderRadius: '10px',
+            padding: '10px 16px', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
           }}>
             इंस्टॉल
           </button>
           <button onClick={() => setShowInstallBanner(false)} style={{
-            position: 'absolute', top: '8px', right: '8px',
-            background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#BDBDBD',
-            lineHeight: 1, width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            background: 'none', border: 'none', fontSize: '22px',
+            cursor: 'pointer', color: '#BDBDBD', padding: '4px',
+            lineHeight: 1, position: 'relative'
           }}>×</button>
         </div>
       )}
@@ -282,10 +206,20 @@ function AppShell() {
   );
 }
 
+function PageSkeleton() {
+  return (
+    <div style={{ padding: '20px 16px' }}>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="skeleton" style={{ height: '100px', borderRadius: '16px', marginBottom: '16px', background: '#e0e0e0' }} />
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   return (
-    <Routes>
-      <Route path="*" element={<AppShell />} />
-    </Routes>
+    <AppProvider>
+      <AppShell />
+    </AppProvider>
   );
 }

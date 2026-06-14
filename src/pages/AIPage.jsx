@@ -1,56 +1,109 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useVoice } from '../hooks/useVoice';
 import { storage } from '../utils/storage';
 import { trackEvent, EVENTS } from '../firebase/analytics';
 
+const CHIPS = {
+  hi: [
+    '💧 आज पानी देना चाहिए?',
+    '🌦️ अगले 7 दिन मौसम कैसा है?',
+    '🐛 फसल को कीड़ों से कैसे बचाएं?',
+    '🌱 गेहूं में खाद कब डालें?',
+    '📋 PM-KISAN योजना क्या है?',
+    '💊 फसल की बीमारी कैसे पहचानें?',
+  ],
+  en: [
+    '💧 Should I irrigate today?',
+    '🌦️ 7-day weather forecast?',
+    '🐛 How to protect crops from pests?',
+    '🌱 When to apply fertilizer to wheat?',
+    '📋 What is PM-KISAN scheme?',
+    '💊 How to identify crop disease?',
+  ],
+  bn: [
+    '💧 আজ সেচ দেওয়া উচিত?',
+    '🌦️ আগামী ৭ দিনের আবহাওয়া?',
+    '🐛 ফসলকে পোকা থেকে কীভাবে রক্ষা করবেন?',
+  ],
+  mr: [
+    '💧 आज पाणी द्यावे का?',
+    '🌦️ पुढचे ७ दिवस हवामान कसे असेल?',
+    '🐛 पिकाला कीडीपासून कसे वाचवायचे?',
+  ],
+  pa: [
+    '💧 ਅੱਜ ਪਾਣੀ ਦੇਣਾ ਚਾਹੀਦਾ ਹੈ?',
+    '🌦️ ਅਗਲੇ 7 ਦਿਨ ਮੌਸਮ ਕਿਵੇਂ ਰਹੇਗਾ?',
+  ],
+};
+
+const PLACEHOLDERS = {
+  hi: 'खेती का कोई भी सवाल पूछें...',
+  en: 'Ask any farming question...',
+  bn: 'যেকোনো প্রশ্ন করুন...',
+  mr: 'कोणताही प्रश्न विचारा...',
+  pa: 'ਕੋਈ ਵੀ ਸਵਾਲ ਪੁੱਛੋ...',
+};
+
 export default function AIPage() {
-  const { user, isOnline } = useApp();
+  const { user } = useApp();
   const lang = user?.language || 'hi';
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const isUnmounted = useRef(false);
 
-  // Auto-scroll on new message
+  useEffect(() => () => { isUnmounted.current = true; }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Pick up pending voice query from FAB
+  // Pick up voice query from global FAB
   useEffect(() => {
     const pending = storage.get('pending_voice_query');
     if (pending) {
       storage.remove('pending_voice_query');
-      setTimeout(() => handleSend(pending), 400);
+      setTimeout(() => sendMessage(pending), 500);
     }
   }, []);
 
-  const { isListening, isSupported, startListening, stopListening, speak } = useVoice(lang, (transcript) => {
-    handleSend(transcript);
-  });
+  const { isListening, isSupported, error: micError, startListening, stopListening, speak } = useVoice(
+    lang,
+    (transcript) => {
+      if (transcript) sendMessage(transcript);
+    }
+  );
 
-  const handleSend = async (overrideText) => {
-    const text = (typeof overrideText === 'string' ? overrideText : inputText).trim();
+  useEffect(() => {
+    if (micError) { setVoiceError(micError); setTimeout(() => setVoiceError(''), 4000); }
+  }, [micError]);
+
+  const sendMessage = useCallback(async (textOverride) => {
+    const text = (typeof textOverride === 'string' ? textOverride : inputText).trim();
     if (!text || isLoading) return;
 
-    setInputText('');
-    if (inputRef.current) {
-      inputRef.current.style.height = '48px';
+    if (!isUnmounted.current) {
+      setInputText('');
+      if (inputRef.current) { inputRef.current.style.height = '48px'; }
     }
 
-    const userMsg = { id: Date.now(), role: 'user', content: text };
-    setMessages(prev => [...prev, userMsg]);
-    setIsLoading(true);
-    trackEvent(EVENTS.AI_MESSAGE_SENT, { length: text.length, lang });
+    const userMsg = { id: `u_${Date.now()}`, role: 'user', content: text };
+    if (!isUnmounted.current) setMessages(prev => [...prev, userMsg]);
+    if (!isUnmounted.current) setIsLoading(true);
 
+    trackEvent(EVENTS.AI_MESSAGE_SENT, { len: text.length, lang });
+
+    // Build context
     const weatherCache = storage.get('weather_cache');
     const weatherCtx = weatherCache
-      ? `तापमान: ${weatherCache.current?.temperature}°C, स्थिति: ${weatherCache.current?.description}, बारिश: ${weatherCache.rainProbabilityNext24h}%`
+      ? `आज का मौसम: ${weatherCache.current?.temperature}°C, ${weatherCache.current?.description}, बारिश की संभावना: ${weatherCache.rainProbabilityNext24h}%`
       : 'मौसम डेटा उपलब्ध नहीं';
 
-    const history = messages.slice(-6).map(m => ({
+    const history = messages.slice(-8).map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       content: m.content
     }));
@@ -58,58 +111,50 @@ export default function AIPage() {
     try {
       if (!navigator.onLine) throw new Error('offline');
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           message: text,
           language: lang,
-          crop: Array.isArray(user.crops) ? user.crops : ['गेहूं'],
+          crop: Array.isArray(user?.crops) ? user.crops : ['गेहूं'],
           weatherContext: weatherCtx,
-          conversationHistory: history
-        })
+          conversationHistory: history,
+        }),
       });
 
+      clearTimeout(timeoutId);
+
       if (res.status === 429) {
-        const d = await res.json();
-        setMessages(prev => [...prev, { id: Date.now(), role: 'ai', content: d.error || '⏳ थोड़ी देर बाद कोशिश करें।' }]);
+        const d = await res.json().catch(() => ({}));
+        const retryMsg = { id: `s_${Date.now()}`, role: 'ai', content: `⏳ ${d.error || 'थोड़ी देर बाद कोशिश करें।'}`, isSystem: true };
+        if (!isUnmounted.current) setMessages(prev => [...prev, retryMsg]);
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
       const data = await res.json();
-      if (!data.reply) throw new Error('empty reply');
+      if (!data?.reply) throw new Error('empty_reply');
 
-      setMessages(prev => [...prev, { id: Date.now(), role: 'ai', content: data.reply }]);
+      const aiMsg = { id: `a_${Date.now()}`, role: 'ai', content: data.reply };
+      if (!isUnmounted.current) setMessages(prev => [...prev, aiMsg]);
       trackEvent(EVENTS.AI_RESPONSE_RECEIVED, { tokens: data.tokens || 0 });
 
     } catch (err) {
       const { getOfflineResponse } = await import('../data/offlineResponses.js');
       const fallback = getOfflineResponse(text, lang);
-      setMessages(prev => [...prev, {
-        id: Date.now(), role: 'ai',
-        content: err.message === 'offline'
-          ? `📴 ऑफलाइन मोड\n\n${fallback}`
-          : fallback
-      }]);
+      const label = err.message === 'offline' ? '📴 ऑफलाइन — ' : err.name === 'AbortError' ? '⏱️ समय सीमा — ' : '';
+      const errMsg = { id: `e_${Date.now()}`, role: 'ai', content: `${label}${fallback}` };
+      if (!isUnmounted.current) setMessages(prev => [...prev, errMsg]);
     } finally {
-      setIsLoading(false);
+      if (!isUnmounted.current) setIsLoading(false);
     }
-  };
-
-  const CHIPS = {
-    hi: ['गेहूं को कितना पानी चाहिए?', 'आज सिंचाई करनी चाहिए?', 'फसल को कीड़ों से कैसे बचाएं?', 'कौन सी खाद डालूं?', 'PM-KISAN योजना क्या है?'],
-    en: ['How much water for wheat?', 'Should I irrigate today?', 'How to protect crops from pests?', 'Which fertilizer to use?', 'What is PM-KISAN?'],
-    bn: ['আজ সেচ দেওয়া উচিত?', 'ফসলে কীটপতঙ্গ থেকে বাঁচাবো কীভাবে?'],
-    mr: ['आज पाणी द्यावे का?', 'पिकाला कीडीपासून कसे वाचवायचे?'],
-    pa: ['ਅੱਜ ਸਿੰਚਾਈ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ?', 'ਫ਼ਸਲ ਨੂੰ ਕੀੜਿਆਂ ਤੋਂ ਕਿਵੇਂ ਬਚਾਈਏ?'],
-  };
-  const chips = CHIPS[lang] || CHIPS.hi;
-
-  const placeholders = {
-    hi: 'कोई भी खेती का सवाल पूछें...', en: 'Ask any farming question...',
-    bn: 'যেকোনো প্রশ্ন করুন...', mr: 'कोणताही प्रश्न विचारा...', pa: 'ਕੋਈ ਵੀ ਸਵਾਲ ਪੁੱਛੋ...'
-  };
+  }, [inputText, isLoading, lang, messages, user]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F8FAF8' }}>
@@ -140,6 +185,13 @@ export default function AIPage() {
         </div>
       </div>
 
+      {/* Voice Error banner */}
+      {voiceError && (
+        <div style={{ background: '#FFEBEE', borderBottom: '2px solid #E53935', padding: '10px 16px' }}>
+          <p style={{ fontSize: '13px', color: '#C62828', margin: 0 }}>⚠️ {voiceError}</p>
+        </div>
+      )}
+
       {/* Offline banner */}
       {!navigator.onLine && (
         <div style={{ background: '#FFF3E0', borderBottom: '2px solid #FFB300', padding: '10px 16px' }}>
@@ -159,8 +211,8 @@ export default function AIPage() {
               {lang === 'hi' ? 'खेती के बारे में कुछ भी पूछें' : 'Ask me anything about farming'}
             </p>
             <div style={{ display: 'flex', overflowX: 'auto', gap: '10px', width: '100%', paddingBottom: '8px' }} className="hide-scrollbar">
-              {chips.map(chip => (
-                <button key={chip} onClick={() => handleSend(chip)} style={{
+              {(CHIPS[lang] || CHIPS.hi).map(chip => (
+                <button key={chip} onClick={() => sendMessage(chip)} style={{
                   background: '#FFFFFF', border: '2px solid #A5D6A7', borderRadius: '20px',
                   padding: '10px 16px', fontSize: '14px', color: '#1B5E20', fontWeight: 500,
                   cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
@@ -185,7 +237,7 @@ export default function AIPage() {
                     borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                     background: msg.role === 'user'
                       ? 'linear-gradient(135deg, #2E7D32, #388E3C)'
-                      : '#FFFFFF',
+                      : msg.isSystem ? '#FFF8E1' : '#FFFFFF',
                     color: msg.role === 'user' ? '#FFFFFF' : '#0D1B0D',
                     fontSize: '15px',
                     boxShadow: msg.role === 'user' ? '0 4px 12px rgba(46,125,50,0.3)' : '0 2px 8px rgba(0,0,0,0.08)',
@@ -193,7 +245,7 @@ export default function AIPage() {
                   }}>
                     {msg.content}
                   </div>
-                  {msg.role === 'ai' && (
+                  {msg.role === 'ai' && !msg.isSystem && (
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <button onClick={() => speak(msg.content)} style={{
                         background: '#E8F5E9', color: '#1B5E20', border: 'none',
@@ -251,9 +303,9 @@ export default function AIPage() {
           ref={inputRef}
           value={inputText}
           onChange={e => setInputText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
           onInput={e => { e.target.style.height = '48px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
-          placeholder={placeholders[lang] || placeholders.hi}
+          placeholder={PLACEHOLDERS[lang] || PLACEHOLDERS.hi}
           rows={1}
           style={{
             flex: 1, minHeight: '48px', maxHeight: '120px',
@@ -267,7 +319,7 @@ export default function AIPage() {
           onBlur={e => e.target.style.border = '2px solid #C8E6C9'}
         />
         <button
-          onClick={() => handleSend()}
+          onClick={() => sendMessage()}
           disabled={!inputText.trim() || isLoading}
           style={{
             width: '48px', height: '48px', borderRadius: '24px', border: 'none',
