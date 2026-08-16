@@ -131,7 +131,13 @@ export default function AIPage() {
         return;
       }
 
-      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error) {
+          throw new Error(`API_ERROR:${errData.error}`);
+        }
+        throw new Error(`HTTP_${res.status}`);
+      }
 
       const data = await res.json();
       if (!data?.reply) throw new Error('empty_reply');
@@ -141,11 +147,17 @@ export default function AIPage() {
       trackEvent(EVENTS.AI_RESPONSE_RECEIVED, { tokens: data.tokens || 0 });
 
     } catch (err) {
-      const { getOfflineResponse } = await import('../data/offlineResponses.js');
-      const fallback = getOfflineResponse(text, lang);
-      const label = err.message === 'offline' ? '📴 ऑफलाइन — ' : err.name === 'AbortError' ? '⏱️ समय सीमा — ' : '';
-      const errMsg = { id: `e_${Date.now()}`, role: 'ai', content: `${label}${fallback}` };
-      if (!isUnmounted.current) setMessages(prev => [...prev, errMsg]);
+      if (err.message.startsWith('API_ERROR:')) {
+        const errorText = err.message.substring(10);
+        const errMsg = { id: `e_${Date.now()}`, role: 'ai', content: `⚠️ सर्वर त्रुटि (Server Error):\n${errorText}` };
+        if (!isUnmounted.current) setMessages(prev => [...prev, errMsg]);
+      } else {
+        const { getOfflineResponse } = await import('../data/offlineResponses.js');
+        const fallback = getOfflineResponse(text, lang);
+        const label = err.message === 'offline' ? '📴 ऑफलाइन — ' : err.name === 'AbortError' ? '⏱️ समय सीमा — ' : '⚠️ (Network Error) ';
+        const errMsg = { id: `e_${Date.now()}`, role: 'ai', content: `${label}${fallback}` };
+        if (!isUnmounted.current) setMessages(prev => [...prev, errMsg]);
+      }
     } finally {
       if (!isUnmounted.current) setIsLoading(false);
     }
