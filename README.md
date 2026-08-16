@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![Build](https://github.com/MSAbhishek22/Monsoon_Mitr/actions/workflows/ci.yml/badge.svg)](https://github.com/MSAbhishek22/Monsoon_Mitr/actions)
-[![Tests](https://img.shields.io/badge/tests-21%20passing-brightgreen)](https://github.com/MSAbhishek22/Monsoon_Mitr/actions)
+[![Build](https://github.com/MSAbhishek22/monsoon-mitra/actions/workflows/ci.yml/badge.svg)](https://github.com/MSAbhishek22/monsoon-mitra/actions)
+[![Tests](https://img.shields.io/badge/tests-21%20passing-brightgreen)](https://github.com/MSAbhishek22/monsoon-mitra/actions)
 [![PWA Ready](https://img.shields.io/badge/PWA-Ready-2E7D32)](https://monsoonmitra.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -99,8 +99,8 @@ Privacy: Zero PII collected | All data stays on device | No registration
 ## 🚀 Getting Started
 
 ```bash
-git clone https://github.com/MSAbhishek22/Monsoon_Mitr.git
-cd Monsoon_Mitr
+git clone https://github.com/MSAbhishek22/monsoon-mitra.git
+cd monsoon-mitra
 npm install
 cp .env.example .env.local   # Fill in your API keys
 npm run dev
@@ -151,31 +151,20 @@ npm run build           # Production build verification
 
 ---
 
-## 🌱 Roadmap
+## 🌱 Features & Future Scope
 
-**v1.0 — Now (Pilot Phase)**
+**Current Features**
 - Core irrigation advisory, AI chat, 5 languages, offline mode
 
-**v1.5 — Q3 2026**
-- IoT soil moisture sensor integration (₹200 sensor)
-- Crop disease detection via phone camera (Google Vision API)
+**Upcoming Integrations**
+- IoT soil moisture sensor integration
+- Crop disease detection via phone camera
 - PM-KISAN scheme enrollment helper
-
-**v2.0 — 2027**
 - e-NAM market price integration
-- Crop insurance (PMFBY) advisory
+- Crop insurance advisory
 - Community knowledge layer — farmer-to-farmer verified tips
-- Bangladesh, Nepal, Sri Lanka expansion (same monsoon pattern)
 
-**The 10-Year Moat:** Every farmer who uses Monsoon Mitra generates hyperlocal crop × weather × irrigation data. That dataset becomes invaluable to insurers, seed companies, and climate researchers. The app is the interface. The data is the business.
-
----
-
-## 🤝 Partners & Recognition
-
-- 🏆 **Fuel the World Hackathon** — Winner, now in Pilot Phase
-- 🌾 **Pilot Partners:** Akshaya Patra Foundation, Action Against Hunger, WFP New Delhi
-- 🏛️ **Government Integration:** Samagra Governance ADAPT Program (in progress)
+**Our Vision:** Every farmer who uses Monsoon Mitra generates hyperlocal crop, weather, and irrigation data. That dataset becomes invaluable to insurers, seed companies, and climate researchers. The app is the interface; the data is the foundation of future farming.
 
 ---
 
