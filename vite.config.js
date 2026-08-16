@@ -6,7 +6,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      // Forward /api/* to vercel dev (run: npx vercel dev --listen 3001)
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      }
+    }
   },
   build: {
     outDir: 'dist',
