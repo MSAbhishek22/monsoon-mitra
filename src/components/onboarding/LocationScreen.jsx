@@ -14,6 +14,8 @@ export default function LocationScreen({ onComplete, language }) {
   const [locationMethod, setLocationMethod] = useState(null);
   const [notificationGranted, setNotificationGranted] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeError, setGeocodeError] = useState('');
 
   const handleLocationRequest = async () => {
     try {
@@ -38,14 +40,51 @@ export default function LocationScreen({ onComplete, language }) {
     setNotifLoading(false);
   };
 
-  const handleComplete = () => {
-    const locationData = locationGranted && location
-      ? { lat: location.lat, lng: location.lng, city: location.city || cityName || 'Delhi', state: location.state || '' }
-      : { lat: 28.6139, lng: 77.2090, city: cityName.trim() || 'Delhi', state: 'Delhi' };
+  const handleComplete = async () => {
+    let locationData;
 
-    if (!locationGranted && cityName.trim()) {
-      setLocationMethod('manual');
-      trackEvent(EVENTS.ONBOARDING_LOCATION_GRANTED, { method: 'manual' });
+    if (locationGranted && location) {
+      // GPS location already has real lat/lng
+      locationData = {
+        lat: location.lat,
+        lng: location.lng,
+        city: location.city || cityName || 'Delhi',
+        state: location.state || ''
+      };
+    } else if (cityName.trim()) {
+      // Geocode the typed city name to get real coordinates
+      setGeocoding(true);
+      setGeocodeError('');
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityName.trim())},India&format=json&limit=1`,
+          { headers: { 'User-Agent': 'MonsoonMitra/1.0' } }
+        );
+        const data = await res.json();
+        if (data?.[0]) {
+          locationData = {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
+            city: cityName.trim(),
+            state: data[0].display_name?.split(',').slice(-3, -2)[0]?.trim() || ''
+          };
+          setLocationMethod('manual');
+          trackEvent(EVENTS.ONBOARDING_LOCATION_GRANTED, { method: 'manual' });
+        } else {
+          // City not found — use Delhi fallback but keep the city name
+          locationData = { lat: 28.6139, lng: 77.2090, city: cityName.trim(), state: 'Delhi' };
+          setLocationMethod('default');
+        }
+      } catch {
+        // Network error — use Delhi fallback
+        locationData = { lat: 28.6139, lng: 77.2090, city: cityName.trim(), state: 'Delhi' };
+        setLocationMethod('default');
+      } finally {
+        setGeocoding(false);
+      }
+    } else {
+      // No location at all — use Delhi default
+      locationData = { lat: 28.6139, lng: 77.2090, city: 'Delhi', state: 'Delhi' };
     }
 
     trackEvent(EVENTS.ONBOARDING_COMPLETED, {
@@ -182,16 +221,20 @@ export default function LocationScreen({ onComplete, language }) {
       <div className="px-4 pb-6 pt-4 safe-bottom">
         <button
           onClick={handleComplete}
-          disabled={!canProceed}
+          disabled={!canProceed || geocoding}
           className="w-full h-14 rounded-xl font-bold text-lg text-white tap-feedback disabled:opacity-50"
           style={{
             background: canProceed ? 'linear-gradient(135deg, #2E7D32, #388E3C)' : '#E0E0E0',
             boxShadow: canProceed ? '0 6px 20px rgba(46,125,50,0.4)' : 'none',
             border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
           }}
           id="get-started-btn"
         >
-          {t(language, 'getStarted')}
+          {geocoding
+            ? <><span style={{ display: 'inline-block', width: 20, height: 20, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> शहर ढूंढ रहे हैं...</>
+            : t(language, 'getStarted')
+          }
         </button>
       </div>
     </div>

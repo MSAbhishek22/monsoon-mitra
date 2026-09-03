@@ -42,6 +42,7 @@ export default function SettingsPage({ onNavigate }) {
   const [showCropPicker, setShowCropPicker] = useState(false);
   const [selectedCrops, setSelectedCrops] = useState(() => storage.get('user_crops') || ['गेहूं']);
   const [cityInput, setCityInput] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
   const { requestLocation } = useGeoLocation();
 
   const [showNameModal, setShowNameModal] = useState(false);
@@ -240,12 +241,37 @@ export default function SettingsPage({ onNavigate }) {
               📍 स्थान बदलें
             </p>
 
-            <button onClick={() => { requestLocation(); setShowLocationPicker(false); }} style={{
-              width: '100%', height: '56px', background: '#2E7D32', color: '#FFFFFF',
-              border: 'none', borderRadius: '12px', fontSize: '17px', fontWeight: 600, cursor: 'pointer',
-              marginBottom: '16px'
-            }}>
-              📍 मेरी वर्तमान लोकेशन
+            <button
+              onClick={async () => {
+                setGpsLoading(true);
+                try {
+                  const loc = await requestLocation();
+                  if (loc) {
+                    updateUser({ location: loc });
+                    storage.set('user_location', loc);
+                    // Clear weather cache so it re-fetches for new location
+                    storage.remove('weather_cache');
+                    storage.remove('weather_cache_time');
+                    setShowLocationPicker(false);
+                    window.location.reload();
+                  }
+                } catch {
+                  alert('लोकेशन नहीं मिली। सेटिंग्स में GPS की अनुमति दें।');
+                } finally {
+                  setGpsLoading(false);
+                }
+              }}
+              disabled={gpsLoading}
+              style={{
+                width: '100%', height: '56px', background: gpsLoading ? '#A5D6A7' : '#2E7D32', color: '#FFFFFF',
+                border: 'none', borderRadius: '12px', fontSize: '17px', fontWeight: 600, cursor: gpsLoading ? 'default' : 'pointer',
+                marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+              }}
+            >
+              {gpsLoading
+                ? <><span style={{ display: 'inline-block', width: 20, height: 20, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> लोकेशन मिल रही है...</>
+                : '📍 मेरी वर्तमान लोकेशन'
+              }
             </button>
 
             <p style={{ textAlign: 'center', color: '#757575', marginBottom: '16px' }}>— या —</p>

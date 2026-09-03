@@ -20,23 +20,28 @@ export function useLocation() {
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          const loc = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            city: '',
-            state: '',
-          };
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const loc = { lat, lng, city: '', state: '' };
 
-          // Try reverse geocoding
+          // Reverse geocode using Nominatim (coords → city name)
           try {
             const res = await fetch(
-              `https://geocoding-api.open-meteo.com/v1/search?name=&latitude=${loc.lat}&longitude=${loc.lng}&count=1&language=en`
+              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`,
+              { headers: { 'User-Agent': 'MonsoonMitra/1.0' } }
             );
             if (res.ok) {
               const data = await res.json();
-              if (data.results?.[0]) {
-                loc.city = data.results[0].name || '';
-                loc.state = data.results[0].admin1 || '';
+              if (data?.address) {
+                // Pick the most specific populated place name
+                loc.city =
+                  data.address.city ||
+                  data.address.town ||
+                  data.address.village ||
+                  data.address.county ||
+                  data.address.state_district ||
+                  '';
+                loc.state = data.address.state || '';
               }
             }
           } catch {}
@@ -50,7 +55,7 @@ export function useLocation() {
           setLoading(false);
           reject(err);
         },
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 }
       );
     });
   }, []);
