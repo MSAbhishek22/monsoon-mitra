@@ -7,6 +7,7 @@ import AlertBanner from './components/alerts/AlertBanner';
 import { storage } from './utils/storage';
 import { measureCoreWebVitals } from './utils/performance';
 
+
 // Lazy load pages for faster initial load
 const HomePage = lazy(() => import('./pages/HomePage'));
 const WeatherPage = lazy(() => import('./pages/WeatherPage'));
@@ -17,7 +18,7 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
 function AppShell() {
-  const { activeTab, setActiveTab, user } = useApp();
+  const { activeTab, setActiveTab, user, completeOnboarding } = useApp();
   const [currentPage, setCurrentPage] = useState('app'); // 'app' | 'privacy' | 'terms'
   const [showSplash, setShowSplash] = useState(true);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -90,7 +91,18 @@ function AppShell() {
   }
 
   if (!onboardingDone) {
-    return <OnboardingWrapper />;
+    return (
+      <OnboardingWrapper
+        onComplete={(userData) => {
+          // Persist user data then mark onboarding complete
+          if (userData.language) localStorage.setItem('user_language', userData.language);
+          if (userData.crops) localStorage.setItem('user_crops', JSON.stringify(userData.crops));
+          if (userData.name) localStorage.setItem('user_name', userData.name);
+          if (userData.location) localStorage.setItem('user_location', JSON.stringify(userData.location));
+          completeOnboarding(userData);
+        }}
+      />
+    );
   }
 
   const isLegalPage = currentPage === 'privacy' || currentPage === 'terms';

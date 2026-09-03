@@ -1,10 +1,11 @@
 // src/pages/HomePage.jsx — Section 8 complete spec
 import React, { useState } from 'react';
 import { useApp, useT } from '../context/AppContext';
-import { useWeather, getWeatherEmoji } from '../hooks/useWeather';
+import { useWeather } from '../hooks/useWeather';
+
 import { useNotifications } from '../hooks/useNotifications';
 
-import { getWeatherCondition } from '../api/weather';
+import { getWeatherEmoji, getWeatherCondition } from '../api/weather';
 import FarmerHook from '../components/FarmerHook';
 import SavingsTracker from '../components/SavingsTracker';
 import ForecastStrip from '../components/weather/ForecastStrip';

@@ -35,10 +35,10 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js')
             .then((registration) => {
-              if (import.meta.env?.DEV) console.log('SW registered:', registration);
+              // Removed import.meta.env (only valid in ES modules, not plain scripts)
             })
             .catch((registrationError) => {
-              if (import.meta.env?.DEV) console.log('SW registration failed:', registrationError);
+              console.warn('SW registration failed:', registrationError);
             });
         });
       }
