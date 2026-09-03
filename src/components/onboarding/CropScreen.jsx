@@ -3,8 +3,7 @@ import React, { useState } from 'react';
 import { CROPS, getCropName } from '../../utils/cropData';
 import { t } from '../../i18n/index';
 
-export default function CropScreen({ selectedCrops, onSelect, language }) {
-  const [customCrop, setCustomCrop] = useState('');
+export default function CropScreen({ selectedCrops, onSelect, customCrop, onCustomCropChange, language }) {
   const showCustomInput = selectedCrops.includes('other');
 
   const toggleCrop = (cropId) => {
@@ -62,7 +61,7 @@ export default function CropScreen({ selectedCrops, onSelect, language }) {
           <input
             type="text"
             value={customCrop}
-            onChange={(e) => setCustomCrop(e.target.value)}
+            onChange={(e) => onCustomCropChange(e.target.value)}
             placeholder={t(language, 'typeCropName')}
             className="w-full px-4 py-3 border-2 border-primary-800 rounded-lg text-base"
             id="custom-crop-input"

@@ -20,7 +20,8 @@ export function AppProvider({ children }) {
         name: localStorage.getItem('user_name') || '',
         crops: JSON.parse(localStorage.getItem('user_crops') || '[]'),
         language: localStorage.getItem('user_language') || 'hi',
-        location: JSON.parse(localStorage.getItem('user_location') || 'null') || { lat: 28.6139, lng: 77.2090, city: 'Delhi', state: 'Delhi' }
+        location: JSON.parse(localStorage.getItem('user_location') || 'null') || { lat: 28.6139, lng: 77.2090, city: 'Delhi', state: 'Delhi' },
+        onboardingDate: localStorage.getItem('onboarding_date') || null
       };
     } catch(e) {
       return DEFAULT_USER;

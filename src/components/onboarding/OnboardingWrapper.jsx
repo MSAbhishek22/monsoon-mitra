@@ -9,6 +9,7 @@ export default function OnboardingWrapper({ onComplete }) {
   const [step, setStep] = useState(0);
   const [language, setLanguage] = useState('hi');
   const [crops, setCrops] = useState([]);
+  const [customCrop, setCustomCrop] = useState('');
 
   const handleLanguageSelect = (lang) => {
     setLanguage(lang);
@@ -27,9 +28,10 @@ export default function OnboardingWrapper({ onComplete }) {
 
   const handleLocationComplete = (locationData) => {
     trackEvent(EVENTS.ONBOARDING_COMPLETED);
+    const finalCrops = crops.map(c => (c === 'other' && customCrop.trim() ? customCrop.trim() : c));
     onComplete({
       language,
-      crops,
+      crops: finalCrops,
       location: locationData.location,
       name: locationData.name,
     });
@@ -37,7 +39,7 @@ export default function OnboardingWrapper({ onComplete }) {
 
   const screens = [
     <LanguageScreen selectedLanguage={language} onSelect={handleLanguageSelect} />,
-    <CropScreen selectedCrops={crops} onSelect={setCrops} language={language} />,
+    <CropScreen selectedCrops={crops} onSelect={setCrops} customCrop={customCrop} onCustomCropChange={setCustomCrop} language={language} />,
     <LocationScreen onComplete={handleLocationComplete} language={language} />,
   ];
 
