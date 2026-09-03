@@ -88,7 +88,10 @@ export function AppProvider({ children }) {
   }, []);
 
   const dismissAlert = useCallback((type) => {
-    setAlerts(prev => prev.filter(a => a.type !== type));
+    setAlerts(prev => {
+      if (!prev.some(a => a.type === type)) return prev;
+      return prev.filter(a => a.type !== type);
+    });
   }, []);
 
   const clearAllData = useCallback(() => {

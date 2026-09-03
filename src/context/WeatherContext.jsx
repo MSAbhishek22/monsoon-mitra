@@ -1,5 +1,5 @@
 // src/context/WeatherContext.jsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchOpenMeteo } from '../api/providers/openMeteo';
 import { getCachedWeather, setCachedWeather } from '../api/cache';
 import { useApp } from './AppContext';
@@ -54,16 +54,19 @@ export function WeatherProvider({ children }) {
   }, [fetchWeather]);
 
   // Normalized weather data for components
-  const normalized = weatherData ? {
-    temperatureCelsius: weatherData.current?.tempC ?? null,
-    humidityPercent: weatherData.current?.humidity ?? null,
-    rainProbabilityNext24h: weatherData.next24h?.maxProb ?? 0,
-    expectedRainfallMm: weatherData.next24h?.totalRainMm ?? 0,
-    windSpeedKmh: weatherData.raw?.hourly?.wind_speed_10m?.[0] ?? null,
-    uvIndex: weatherData.raw?.hourly?.uv_index?.[0] ?? null,
-    daily: weatherData.daily || [],
-    hourly: weatherData.raw?.hourly || {},
-  } : null;
+  const normalized = useMemo(() => {
+    if (!weatherData) return null;
+    return {
+      temperatureCelsius: weatherData.current?.tempC ?? null,
+      humidityPercent: weatherData.current?.humidity ?? null,
+      rainProbabilityNext24h: weatherData.next24h?.maxProb ?? 0,
+      expectedRainfallMm: weatherData.next24h?.totalRainMm ?? 0,
+      windSpeedKmh: weatherData.raw?.hourly?.wind_speed_10m?.[0] ?? null,
+      uvIndex: weatherData.raw?.hourly?.uv_index?.[0] ?? null,
+      daily: weatherData.daily || [],
+      hourly: weatherData.raw?.hourly || {},
+    };
+  }, [weatherData]);
 
   const { sendLocalWeatherAlert, permission } = useNotifications();
 
