@@ -157,7 +157,7 @@ export default async function handler(req, res) {
 
   // Build Gemini request
   const systemPrompt = buildSystemPrompt(cleanLanguage, cleanCrop, cleanWeather);
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   const contents = [
     ...cleanHistory.map(m => ({
@@ -188,7 +188,7 @@ export default async function handler(req, res) {
       crop: cleanCrop,
       messageLength: cleanMessage.length,
       historyLength: cleanHistory.length,
-      model: 'gemini-1.5-flash'
+      model: 'gemini-2.5-flash'
     });
 
     const geminiRes = await fetch(geminiUrl, {
