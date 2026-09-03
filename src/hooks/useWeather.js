@@ -60,6 +60,7 @@ export function useWeather() {
       if (!raw.current) throw new Error('No data');
 
       const processed = processWeatherData(raw, lat, lng, loc);
+      processed.raw = raw; // Preserve raw for ForecastStrip and other consumers
       setWeatherData(processed);
       setLastUpdated(Date.now());
       setError(null);
