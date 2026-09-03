@@ -1,4 +1,8 @@
 // src/firebase/config.js — Firebase initialization with graceful fallback
+import { initializeApp } from 'firebase/app';
+import { getAnalytics, logEvent as fbLogEvent } from 'firebase/analytics';
+import { getMessaging, isSupported } from 'firebase/messaging';
+
 let analytics = null;
 let messaging = null;
 let logEvent = () => {};
@@ -7,7 +11,6 @@ let app = null;
 try {
   const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
   if (apiKey && apiKey !== 'your_firebase_api_key') {
-    const { initializeApp } = await import('firebase/app');
     const firebaseConfig = {
       apiKey,
       authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -20,15 +23,17 @@ try {
     app = initializeApp(firebaseConfig);
 
     try {
-      const analyticsModule = await import('firebase/analytics');
-      analytics = analyticsModule.getAnalytics(app);
-      logEvent = analyticsModule.logEvent;
+      analytics = getAnalytics(app);
+      logEvent = fbLogEvent;
     } catch {}
 
-    try {
-      const messagingModule = await import('firebase/messaging');
-      messaging = messagingModule.getMessaging(app);
-    } catch {}
+    isSupported().then(supported => {
+      if (supported) {
+        try {
+          messaging = getMessaging(app);
+        } catch {}
+      }
+    });
   }
 } catch (e) {
   if (import.meta.env.DEV) console.warn('Firebase init skipped:', e.message);
