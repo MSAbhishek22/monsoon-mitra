@@ -42,7 +42,7 @@ export function useWeather() {
       const params = new URLSearchParams({
         latitude: lat.toFixed(4),
         longitude: lng.toFixed(4),
-        current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,precipitation,apparent_temperature',
+        current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,precipitation,apparent_temperature,surface_pressure',
         hourly: 'temperature_2m,precipitation_probability,weather_code',
         daily: 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,weather_code',
         timezone: 'Asia/Kolkata',
@@ -127,6 +127,7 @@ function processWeatherData(raw, lat, lng, loc) {
       feelsLike: Math.round(c.apparent_temperature ?? temp - 2),
       humidity: Math.round(humidity),
       windSpeed: Math.round(wind),
+      pressure: Math.round(c.surface_pressure ?? 1013),
       weatherCode: code,
       description: getWeatherDescription(code),
       emoji: getWeatherEmoji(code),

@@ -5,10 +5,6 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
 
-// Context Providers
-import { AppProvider } from './context/AppContext';
-import { WeatherProvider } from './context/WeatherContext';
-
 // Error Boundary
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { measureCoreWebVitals } from './utils/performance';
@@ -16,13 +12,9 @@ import { measureCoreWebVitals } from './utils/performance';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <AppProvider>
-        <WeatherProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </WeatherProvider>
-      </AppProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>,
 );

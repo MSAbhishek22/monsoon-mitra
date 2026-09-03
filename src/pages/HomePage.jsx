@@ -28,7 +28,8 @@ export default function HomePage() {
   const greeting = hour < 12 ? 'सुप्रभात' : hour < 17 ? 'नमस्ते' : hour < 20 ? 'शुभ संध्या' : 'शुभ रात्रि';
   const greetingEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : hour < 20 ? '🌇' : '🌙';
 
-  const irrigationDecision = weatherData ? getIrrigationDecision(weatherData.rainProbabilityNext24h, weatherData.current.temperature, lang) : null;
+  const irrigationDecision = weatherData ? getIrrigationDecision(weatherData, user.crops?.[0] || 'गेहूं') : null;
+
   const temp = weatherData?.temperatureCelsius;
   const rainProb = weatherData?.rainProbabilityNext24h || 0;
   const weatherEmoji = getWeatherEmoji(rainProb, temp);

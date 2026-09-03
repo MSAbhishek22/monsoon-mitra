@@ -86,10 +86,13 @@ export default function SavingsPage() {
       didSkip: logEntry.didSkip,
       savings: logEntry.aiSaidSkip && logEntry.didSkip ? (CROP_SAVINGS[logEntry.crop] || 500) : 0,
     };
-    storage.set('irrigation_log', [entry, ...existing]);
+    const updated = [entry, ...existing];
+    storage.set('irrigation_log', updated);
+    setIrrigationLog(updated);
     setShowLogModal(false);
-    window.location.reload();
+    trackEvent(EVENTS.SAVINGS_UPDATED, { savings: entry.savings, crop: entry.crop });
   };
+
 
   const { current: displayTotal } = useCountUp(total);
   const pct = goal > 0 ? Math.min((total / goal) * 100, 100) : 0;

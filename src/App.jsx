@@ -18,7 +18,8 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
 function AppShell() {
-  const { activeTab, setActiveTab, user, completeOnboarding } = useApp();
+  const { activeTab, setActiveTab, user, completeOnboarding, alerts, dismissAlert } = useApp();
+
   const [currentPage, setCurrentPage] = useState('app'); // 'app' | 'privacy' | 'terms'
   const [showSplash, setShowSplash] = useState(true);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -140,8 +141,15 @@ function AppShell() {
         </div>
       )}
 
-      {/* Alert banner */}
-      <AlertBanner />
+      {/* Alert banner — wired to AppContext alerts */}
+      {alerts.length > 0 && (
+        <AlertBanner
+          alert={alerts[0]}
+          onDismiss={() => dismissAlert(alerts[0].type)}
+          onDetails={() => setActiveTab('weather')}
+        />
+      )}
+
 
       {/* Page content */}
       <div

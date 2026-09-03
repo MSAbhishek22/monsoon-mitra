@@ -50,7 +50,6 @@ export function useNotifications() {
               setFcmToken(token);
               storage.set('fcm_token', token);
               storage.set('fcm_token_timestamp', Date.now());
-              storage.set('fcm_token_timestamp', Date.now());
               return token;
             }
           }
