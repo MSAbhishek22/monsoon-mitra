@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { WeatherProvider } from './context/WeatherContext';
 import SplashScreen from './components/common/SplashScreen';
 import OnboardingWrapper from './components/onboarding/OnboardingWrapper';
 import BottomNav from './components/common/BottomNav';
@@ -239,7 +240,9 @@ function PageSkeleton() {
 export default function App() {
   return (
     <AppProvider>
-      <AppShell />
+      <WeatherProvider>
+        <AppShell />
+      </WeatherProvider>
     </AppProvider>
   );
 }

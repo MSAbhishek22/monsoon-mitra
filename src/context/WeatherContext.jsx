@@ -9,7 +9,7 @@ import { storage } from '../utils/storage';
 const WeatherContext = createContext(null);
 
 export function WeatherProvider({ children }) {
-  const { user, isOnline } = useApp();
+  const { user, isOnline, addAlert, dismissAlert } = useApp();
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -68,28 +68,34 @@ export function WeatherProvider({ children }) {
   const { sendLocalWeatherAlert, permission } = useNotifications();
 
   useEffect(() => {
-    if (!normalized || permission !== 'granted' || !sendLocalWeatherAlert) return;
+    if (!normalized) return;
 
     const today = new Date().toDateString();
     const rainProb = normalized.rainProbabilityNext24h ?? 0;
     const temp = normalized.temperatureCelsius ?? 30;
 
     if (rainProb > 80) {
+      addAlert({ type: 'flood', message: `${rainProb}% बारिश की संभावना — फसल सुरक्षित करें`, severity: 'high' });
       const lastFlood = storage.get('last_flood_alert_date');
-      if (lastFlood !== today) {
+      if (permission === 'granted' && sendLocalWeatherAlert && lastFlood !== today) {
         sendLocalWeatherAlert('flood', `${rainProb}% बारिश की संभावना। फसल और सामान सुरक्षित करें।`);
         storage.set('last_flood_alert_date', today);
       }
+    } else {
+      dismissAlert('flood');
     }
 
     if (temp > 40 && rainProb < 10) {
+      addAlert({ type: 'drought', message: 'तापमान बहुत अधिक — अभी सिंचाई करें', severity: 'medium' });
       const lastDrought = storage.get('last_drought_alert_date');
-      if (lastDrought !== today) {
+      if (permission === 'granted' && sendLocalWeatherAlert && lastDrought !== today) {
         sendLocalWeatherAlert('drought');
         storage.set('last_drought_alert_date', today);
       }
+    } else {
+      dismissAlert('drought');
     }
-  }, [normalized, permission, sendLocalWeatherAlert]);
+  }, [normalized, permission, sendLocalWeatherAlert, addAlert, dismissAlert]);
 
   const value = {
     weatherData,

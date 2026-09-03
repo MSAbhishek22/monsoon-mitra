@@ -49,24 +49,25 @@ export function getWeatherCondition(rainProb, temp, lang = 'hi') {
   return c.cool;
 }
 
-// Reverse geocode lat/lng to city name
+// Reverse geocode lat/lng to city name using OpenStreetMap Nominatim
 export async function reverseGeocode(lat, lng) {
   try {
     const res = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=&latitude=${lat}&longitude=${lng}&count=1&language=en`
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+      { headers: { 'Accept-Language': 'en', 'User-Agent': 'MonsoonMitra/1.0' } }
     );
     if (!res.ok) return null;
     const data = await res.json();
-    if (data.results?.[0]) {
-      return {
-        city: data.results[0].name,
-        state: data.results[0].admin1,
-        country: data.results[0].country,
-      };
-    }
+    const addr = data.address || {};
+    return {
+      city: addr.city || addr.town || addr.village || addr.county || data.display_name?.split(',')[0] || '',
+      state: addr.state || '',
+      country: addr.country || 'India',
+    };
   } catch {}
   return null;
 }
+
 
 // Get day name in selected language
 export function getDayName(dateStr, lang = 'hi') {
