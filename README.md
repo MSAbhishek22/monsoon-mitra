@@ -6,6 +6,12 @@ This was the first app Abhishek built on his own laptop. When it was time to sho
 
 A farmer speaks instead of typing. Will it rain tomorrow? Should I water today? Is my crop in danger? Monsoon Mitra answers by voice, in the farmer's own language, on a low-cost Android phone.
 
+## Screenshots
+
+![Monsoon Mitr — pick your language (5 languages)](docs/hero.png)
+
+![The farm dashboard: watering advice, weather and the voice button](docs/feature.png)
+
 ## The problem
 
 Every monsoon morning, a small farmer has to decide: water the crop today, or wait for rain? One mistimed irrigation cycle wastes ₹450–₹750 and thousands of litres of water, and the monsoons farmers once read from experience have become hard to predict. The government apps that exist are slow, English-heavy, and ask a farmer to type and read — in the middle of a working day, with wet hands, in the field.
