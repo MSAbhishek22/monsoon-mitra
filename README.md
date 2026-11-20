@@ -1,192 +1,88 @@
-# 🌾 Monsoon Mitra — किसान का डिजिटल साथी
+# Monsoon Mitra — a voice-first farming companion in 5 languages
 
-<div align="center">
+**Live app: https://monsoonmitra.vercel.app** · Demo with sample data: https://monsoonmitra.vercel.app/?demo=true
 
-[![Build](https://github.com/MSAbhishek22/monsoon-mitra/actions/workflows/ci.yml/badge.svg)](https://github.com/MSAbhishek22/monsoon-mitra/actions)
-[![Tests](https://img.shields.io/badge/tests-21%20passing-brightgreen)](https://github.com/MSAbhishek22/monsoon-mitra/actions)
-[![PWA Ready](https://img.shields.io/badge/PWA-Ready-2E7D32)](https://monsoonmitra.vercel.app)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+This was the first app Abhishek built on his own laptop. When it was time to shoot the demo, his father woke before dawn and went with him into the rice fields to film it. That is the user this app is built for.
 
-**AI-powered voice-first farming assistant for India's 140 million small farmers.**  
-**Works in Hindi, Bengali, Marathi, Punjabi & English. Offline-capable. Free.**
+A farmer speaks instead of typing. Will it rain tomorrow? Should I water today? Is my crop in danger? Monsoon Mitra answers by voice, in the farmer's own language, on a low-cost Android phone.
 
-[🌐 Live App](https://monsoonmitra.vercel.app) • [📱 Demo](https://monsoonmitra.vercel.app/?demo=true) • [📋 Play Store Listing](PLAY_STORE_LISTING.md)
+## The problem
 
-</div>
+Every monsoon morning, a small farmer has to decide: water the crop today, or wait for rain? One mistimed irrigation cycle wastes ₹450–₹750 and thousands of litres of water, and the monsoons farmers once read from experience have become hard to predict. The government apps that exist are slow, English-heavy, and ask a farmer to type and read — in the middle of a working day, with wet hands, in the field.
 
----
+## Who it is for, and who would pay
 
-## 🌧️ The Problem We're Solving
+For India's small and marginal farmers — about 140 million of them, farming an average of 1.15 hectares, most on phones that cost under ₹8,000. The app is free for the farmer, with no registration and no personal data collected.
 
-Every monsoon season, **140 million small and marginal farmers** in India face the same 3 questions every single morning:
+The paying side is the organisations that need to reach those farmers: farmer producer organisations (FPOs), agri-input companies, and state programmes that run advisories for thousands of farmers at a time, in the language each farmer actually speaks.
 
-> *"क्या आज पानी देना चाहिए?" — Should I irrigate today?*  
-> *"क्या कल बारिश आएगी?" — Will it rain tomorrow?*  
-> *"मेरी फसल को कोई खतरा है?" — Is my crop in danger?*
+## What works today
 
-Getting these wrong costs real money. One mistimed irrigation cycle wastes **₹450–₹750** and thousands of liters of water. With erratic monsoons worsening every year, farmers who relied on generational knowledge are now flying blind.
+- **Ask by voice or text, in 5 languages.** Hindi, Bengali, Marathi, Punjabi and English. One big mic button in the centre; speak a question, hear the answer. Farming questions are answered by Google Gemini 1.5 Flash, called through a server-side proxy so the key never reaches the phone.
+- **A clear answer on watering, every day.** The irrigation advisor weighs the real 7-day forecast for the farmer's exact location (Open-Meteo, free, no account) and says plainly: water today, or don't — rain is coming. Skipping one needless cycle saves roughly ₹450–₹750.
+- **Hyperlocal weather.** A 7-day forecast with rain-probability bars for the farmer's own spot, not the district average.
+- **Flood and drought alerts.** Warnings are pushed before danger arrives (Firebase Cloud Messaging), so there is time to act.
+- **A savings tracker.** Water and money saved by following the advice, counted in rupees the farmer can see adding up.
+- **Works offline.** The important information stays available with no internet, because that is what the field is like. The demo mode fills the app with 15 days of sample farmer data — savings counter, irrigation log, live weather — so anyone can see it working in one click.
+- **Light enough for the phone it runs on.** About 35 KB of JavaScript (gzipped); it loads in under 2 seconds on 4G.
 
-Existing government apps (Kisan Suvidha, mKisan) are slow, English-heavy, and abandoned after launch. **There is no voice-first, multilingual, AI-powered tool built specifically for the smallholder farmer.**
+## The numbers
 
-**Until now.**
+- 5 languages, spoken and written
+- 21 automated tests, all passing, with CI on every push
+- ₹450–₹750 saved per irrigation cycle the app says to skip
+- 0 sign-ups, 0 personal data collected — nothing about the farmer leaves the device except the question asked
 
----
+## How it is built
 
-## 💡 What Monsoon Mitra Does
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Vite 5, Tailwind CSS 3 — a Progressive Web App |
+| AI answers | Google Gemini 1.5 Flash, via a Vercel serverless proxy at `/api/chat` |
+| Weather | Open-Meteo API (free, no key) |
+| Alerts and analytics | Firebase Cloud Messaging and Firebase Analytics (anonymous) |
+| Hosting | Vercel |
+| Testing | Vitest + MSW, 21 tests; GitHub Actions CI |
 
-Monsoon Mitra is a **Progressive Web App** that acts as every farmer's personal AI assistant — in their language, on their ₹5,000 Android phone, even with poor internet.
+Safety basics are in place: the Gemini key is server-side only, requests are rate-limited to 10 per minute per IP, input is cleaned and capped at 800 characters, and the app sets CSP and HSTS headers.
 
-### The 3 Core Answers, Always Visible
-
-```
-🌦️ आज का मौसम — दोस्त या दुश्मन?
-
-💧 आज पानी दें          🌧️ पानी मत दें
-   (18% बारिश)              (85% बारिश!)
-
-💰 बचत: ₹450 बचाए इस बार
-```
-
-### Key Features
-
-| Feature | What it does |
-|--------|-------------|
-| 🤖 **AI सहायक** | Ask any farming question by voice or text in Hindi. Powered by Gemini 1.5 Flash. |
-| 🌦️ **Hyperlocal Weather** | Real 7-day forecast with rain probability bars for your exact location. |
-| 💧 **Irrigation Advisor** | AI decides: irrigate today or skip? Saves ₹500 per avoided cycle. |
-| 🚨 **Flood & Drought Alerts** | Push notifications before danger arrives. Act before the crisis. |
-| 💰 **Savings Tracker** | Gamified water + money saved counter. See the rupees add up. |
-| 📴 **Offline Mode** | Critical info available even with no internet — built for rural India. |
-| 🎤 **Voice-First** | Central mic button. Speak your question. Get an answer. No typing needed. |
-| 🌍 **5 Languages** | Hindi · Bengali · Marathi · Punjabi · English |
-
----
-
-## 📊 The Numbers
-
-| Metric | Value |
-|--------|-------|
-| Target farmers | 140 million smallholders in India |
-| Average landholding | 1.15 hectares |
-| Smartphone penetration | 70%+ (mostly sub-₹8,000 Android) |
-| Water wasted per season | 15–40% due to mistimed irrigation |
-| Savings per skipped cycle | ₹450 – ₹750 |
-| Languages supported | 5 |
-| App size (gzipped) | ~35KB JS — loads in under 2 seconds on 4G |
-
----
-
-## 🏗️ Architecture
-
-```
-[Farmer's Android Phone — PWA]
-         │
-         ├──→ Open-Meteo API (hyperlocal weather, free, no auth)
-         │
-         ├──→ Vercel Serverless Function /api/chat
-         │         └──→ Google Gemini 1.5 Flash (AI responses)
-         │
-         └──→ Firebase
-                   ├── Analytics (anonymous usage tracking)
-                   └── Cloud Messaging (push alerts)
-
-Security: GEMINI_API_KEY server-only | CSP headers | HSTS | Rate limiting
-Privacy: Zero PII collected | All data stays on device | No registration
-```
-
----
-
-## 🚀 Getting Started
+## Run it
 
 ```bash
 git clone https://github.com/MSAbhishek22/monsoon-mitra.git
 cd monsoon-mitra
 npm install
-cp .env.example .env.local   # Fill in your API keys
-npm run dev
+cp .env.example .env.local   # add your API keys
+npm run dev                  # http://localhost:5173
 ```
-
-Visit `http://localhost:5173` — the app loads instantly.
-
-### Try the Demo
-Visit **[monsoonmitra.vercel.app/?demo=true](https://monsoonmitra.vercel.app/?demo=true)** to see the app populated with 15 days of real-looking farmer data — savings counter animating, irrigation log filled, weather live.
-
----
-
-## 🔧 Tech Stack
-
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Frontend | React 18 + Vite 5 | Fast builds, modern dev experience |
-| Styling | Tailwind CSS 3 | Utility-first, no bloat |
-| AI | Google Gemini 1.5 Flash | Fast, multilingual, affordable |
-| Weather | Open-Meteo API | Free, reliable, hyperlocal, no auth |
-| Push Notifications | Firebase Cloud Messaging | Cross-platform, free tier |
-| Analytics | Firebase Analytics | Anonymous usage tracking |
-| Hosting | Vercel | Zero-config CDN + serverless |
-| Testing | Vitest + MSW | 21 tests, 70%+ coverage |
-| CI/CD | GitHub Actions | Auto-lint, test, deploy on push |
-
----
-
-## 🔒 Security Architecture
-
-- `GEMINI_API_KEY` is **server-side only** — never in the frontend bundle
-- All AI requests go through `/api/chat` serverless proxy
-- Rate limiting: 10 requests/minute per IP
-- Content Security Policy, HSTS, X-Frame-Options headers
-- Input sanitization: HTML stripped, 800 char limit, conversation history capped
-- Zero PII: No phone numbers, no Aadhaar, no bank details ever collected
-
----
-
-## 🧪 Testing
 
 ```bash
 npm run test:run        # 21 tests across 6 test files
-npm run test:coverage   # Coverage report (target: 70%+)
-npm run lint            # ESLint — 0 errors
-npm run build           # Production build verification
+npm run build           # production build check
 ```
 
----
+See `PLAY_STORE_LISTING.md` for the store listing draft.
 
-## 🌱 Features & Future Scope
+## Where this can go
 
-**Current Features**
-- Core irrigation advisory, AI chat, 5 languages, offline mode
+- Crop disease checks from a phone photo, so a farmer can ask about a sick plant the same way he asks about rain.
+- Market prices (e-NAM) and a PM-KISAN scheme helper, in the same voice, in the same app.
+- Working with FPOs district by district, so the advice and alerts reach whole farming communities at once.
 
-**Upcoming Integrations**
-- IoT soil moisture sensor integration
-- Crop disease detection via phone camera
-- PM-KISAN scheme enrollment helper
-- e-NAM market price integration
-- Crop insurance advisory
-- Community knowledge layer — farmer-to-farmer verified tips
+## One line on a neighbouring project
 
-**Our Vision:** Every farmer who uses Monsoon Mitra generates hyperlocal crop, weather, and irrigation data. That dataset becomes invaluable to insurers, seed companies, and climate researchers. The app is the interface; the data is the foundation of future farming.
+JalRaksha, built for the Xylem challenge, watches village drinking-water points — which handpump works, which water is safe. Monsoon Mitra is a different job: rain, irrigation and crop risk, for the farmer himself.
 
----
-
-## 👥 Team
+## Team
 
 Built with equal contribution by:
 
-**MS Abhishek**  
-📧 msabhishekanni10@gmail.com  
-🐙 [github.com/MSAbhishek22](https://github.com/MSAbhishek22)
+**M S Abhishek**
+msabhishekanni10@gmail.com · [github.com/MSAbhishek22](https://github.com/MSAbhishek22)
 
-**Aayushi Goel**  
-📧 aayushigoel73@gmail.com
+**Aayushi Goel**
+aayushigoel73@gmail.com
 
----
-
-## 📄 License
+## License
 
 MIT License — free to use, fork, and build upon.
-
----
-
-<div align="center">
-<strong>🌾 Built for the farmer who feeds us all. 🌾</strong>
-</div>
